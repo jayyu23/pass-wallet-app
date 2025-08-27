@@ -9,6 +9,7 @@ use rand::RngCore;
 use sha3::{Keccak256, Digest};
 use aes_gcm::{Aes256Gcm, Key, Nonce, aead::Aead, KeyInit};
 use hex;
+use rlp::RlpStream;
 
 #[derive(Serialize, Deserialize, Clone)]
 struct EncryptedKey {
@@ -192,4 +193,115 @@ impl EnclaveKMS {
         
         Ok(account)
     }
+
+    /// Sign an Ethereum transaction using the stored private key
+    pub fn sign_transaction(&mut self, wallet_address: &str, tx: &LegacyTransaction, chain_id: u64) -> Result<String> {
+        // Retrieve and decrypt the private key
+        let encrypted_key = self.get_key(wallet_address)?
+            .ok_or_else(|| anyhow!("Key not found for wallet"))?;
+        let private_key_hex = self.decrypt_key(&encrypted_key)?;
+        
+        // Parse private key
+        let private_key_clean = private_key_hex.strip_prefix("0x").unwrap_or(&private_key_hex);
+        let private_key_bytes = hex::decode(private_key_clean)?;
+        if private_key_bytes.len() != 32 {
+            return Err(anyhow!("Invalid private key length"));
+        }
+        let mut key_array = [0u8; 32];
+        key_array.copy_from_slice(&private_key_bytes);
+        let secret_key = SecretKey::from_bytes(&key_array.into())?;
+        let signing_key = SigningKey::from(secret_key);
+
+        // Sign the transaction
+        let tx_hash = self.compute_transaction_hash(tx, chain_id)?;
+        let (signature, recovery_id) = signing_key.sign_prehash_recoverable(&tx_hash)?;
+        
+        // Helper function to convert minimal big-endian bytes back to u64
+        let bytes_to_u64 = |bytes: &[u8]| -> u64 {
+            if bytes.is_empty() {
+                return 0;
+            }
+            let mut result = 0u64;
+            for &byte in bytes {
+                result = (result << 8) | (byte as u64);
+            }
+            result
+        };
+
+        // Encode the signed transaction using RLP
+        let mut rlp_stream = RlpStream::new_list(9);
+        rlp_stream.append(&tx.nonce);
+        rlp_stream.append(&bytes_to_u64(&tx.gas_price));
+        rlp_stream.append(&bytes_to_u64(&tx.gas_limit));
+        
+        // Handle the 'to' field properly
+        if let Some(to_addr) = &tx.to {
+            rlp_stream.append(to_addr);
+        } else {
+            rlp_stream.append(&""); // Empty for contract creation
+        }
+        
+        rlp_stream.append(&bytes_to_u64(&tx.value));
+        rlp_stream.append(&tx.data);
+        
+        // Add signature components with EIP-155
+        let v = recovery_id.to_byte() as u64 + 35 + 2 * chain_id;
+        rlp_stream.append(&v);
+        
+        // Convert signature components to bytes
+        let r_bytes = signature.r().to_bytes();
+        let s_bytes = signature.s().to_bytes();
+        rlp_stream.append(&r_bytes.as_slice());
+        rlp_stream.append(&s_bytes.as_slice());
+        
+        let encoded = rlp_stream.out();
+        Ok(format!("0x{}", hex::encode(encoded)))
+    }
+
+    /// Compute transaction hash for signing (EIP-155)
+    fn compute_transaction_hash(&self, tx: &LegacyTransaction, chain_id: u64) -> Result<[u8; 32]> {
+        // Helper function to convert minimal big-endian bytes back to u64
+        let bytes_to_u64 = |bytes: &[u8]| -> u64 {
+            if bytes.is_empty() {
+                return 0;
+            }
+            let mut result = 0u64;
+            for &byte in bytes {
+                result = (result << 8) | (byte as u64);
+            }
+            result
+        };
+
+        let mut rlp_stream = RlpStream::new_list(9);
+        rlp_stream.append(&tx.nonce);
+        rlp_stream.append(&bytes_to_u64(&tx.gas_price));
+        rlp_stream.append(&bytes_to_u64(&tx.gas_limit));
+        
+        if let Some(to_addr) = &tx.to {
+            rlp_stream.append(to_addr);
+        } else {
+            rlp_stream.append(&"");
+        }
+        
+        rlp_stream.append(&bytes_to_u64(&tx.value));
+        rlp_stream.append(&tx.data);
+        rlp_stream.append(&chain_id);
+        rlp_stream.append(&0u8); // Empty r for EIP-155
+        rlp_stream.append(&0u8); // Empty s for EIP-155
+        
+        let encoded = rlp_stream.out();
+        let hash = Keccak256::digest(&encoded);
+        Ok(hash.into())
+    }
+}
+
+/// Legacy Ethereum transaction structure
+#[derive(Debug, Clone)]
+pub struct LegacyTransaction {
+    pub nonce: u64,
+    pub gas_price: Vec<u8>, // Big-endian bytes
+    pub gas_limit: Vec<u8>, // Big-endian bytes  
+    pub to: Option<Vec<u8>>, // 20-byte address
+    pub value: Vec<u8>, // Big-endian bytes
+    pub data: Vec<u8>,
 } 

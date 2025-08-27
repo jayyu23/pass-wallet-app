@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "enclave-py": "cd py-kms-sim && source venv/bin/activate && python3 enclave_api.py",
+    "server-enclave": "cd server-enclave && cargo run",
+    "server-enclave-release": "cd server-enclave && cargo run --release",
     "deploy-test": "nohup npm run dev > app.out.log 2>&1 &"
   },
   "dependencies": {

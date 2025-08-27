@@ -7,6 +7,9 @@ import { useAccount } from 'wagmi';
 import { useState, useEffect } from 'react';
 import TransferModal from '../../components/TransferModal';
 import MessageModal from '../../components/MessageModal';
+import AssetTransferModal from '../../components/AssetTransferModal';
+import WithdrawModal from '../../components/WithdrawModal';
+import { submitTransactionToRPC } from '../../utils/rpcSubmit';
 import { MessageRequest } from '../../types';
 import DomainTransferModal from '../../components/DomainTransferModal';
 
@@ -28,7 +31,9 @@ import {
   faWallet, 
   faCrown, 
   faCopy,
-  faSync
+  faSync,
+  faSpinner,
+  faPaperPlane
 } from '@fortawesome/free-solid-svg-icons';
 
 interface Transaction {
@@ -105,7 +110,7 @@ const AccountDetailsPage: NextPage = () => {
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
   const [isProposalModalOpen, setIsProposalModalOpen] = useState(false);
   const [isDomainTransferModalOpen, setIsDomainTransferModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'messages' | 'inbox'>('messages');
+  const [activeTab, setActiveTab] = useState<'assets' | 'messages' | 'inbox' | 'provenance'>('assets');
   const [accountDetails, setAccountDetails] = useState<{
     name: string;
     balance: string;
@@ -122,6 +127,17 @@ const AccountDetailsPage: NextPage = () => {
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
   const [inboxTransactions, setInboxTransactions] = useState<InboxTransaction[]>([]);
   const [isLoadingInbox, setIsLoadingInbox] = useState(false);
+  const [subaccountAssets, setSubaccountAssets] = useState<any>(null);
+  const [isLoadingAssets, setIsLoadingAssets] = useState(false);
+  const [isAssetTransferModalOpen, setIsAssetTransferModalOpen] = useState(false);
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<{assetId: string, asset: any} | null>(null);
+  const [provenanceData, setProvenanceData] = useState<any>(null);
+  const [isLoadingProvenance, setIsLoadingProvenance] = useState(false);
+  const [submittingTxs, setSubmittingTxs] = useState<Set<string>>(new Set());
+  const [claimingTxId, setClaimingTxId] = useState<string | null>(null);
+
+
 
   const handleApproveProposal = async () => {
     console.log("Approve proposal");
@@ -522,6 +538,137 @@ const AccountDetailsPage: NextPage = () => {
       toast.error(`Failed to claim: ${errorData.error || 'Unknown error'}`);
     }
   };
+
+  const fetchSubaccountAssets = async () => {
+    if (!accountAddress || !connectedAddress) {
+      return;
+    }
+    
+    try {
+      setIsLoadingAssets(true);
+      
+      // Call through Next.js API route with connected address for filtering
+      const response = await fetch('/api/assets/list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          wallet_address: accountAddress,
+          connected_address: connectedAddress 
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch assets: ${response.status} ${errorText}`);
+      }
+      
+      const assetsData = await response.json();
+      console.log('Filtered enclave assets data:', assetsData);
+      setSubaccountAssets(assetsData);
+    } catch (error: unknown) {
+      console.error('Error fetching subaccount assets:', error);
+      setSubaccountAssets(null);
+      toast.error(`Failed to fetch subaccount assets: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsLoadingAssets(false);
+    }
+  };
+
+  // Fetch provenance data for the connected subaccount
+  const fetchProvenanceData = async () => {
+    if (!accountAddress || !connectedAddress) return;
+    
+    try {
+      setIsLoadingProvenance(true);
+      console.log('Fetching provenance data for:', accountAddress);
+      
+      const response = await fetch('/api/provenance/subaccount', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          wallet_address: accountAddress,
+          connected_address: connectedAddress
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        toast.error(`Failed to fetch provenance data: ${response.status} ${errorText}`);
+      }
+      
+      const provenanceResponse = await response.json();
+      console.log('Provenance data:', provenanceResponse);
+      setProvenanceData(provenanceResponse);
+    } catch (error: unknown) {
+      console.error('Error fetching provenance data:', error);
+      setProvenanceData(null);
+      toast.error(`Failed to fetch provenance data: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsLoadingProvenance(false);
+    }
+  };
+
+  // Fetch subaccount assets when component loads
+  useEffect(() => {
+    if (router.isReady && accountAddress && connectedAddress) {
+      fetchSubaccountAssets();
+    }
+  }, [router.isReady, accountAddress, connectedAddress]);
+
+  // Handle transaction submission to RPC
+  const handleSubmitTransaction = async (signedRawTransaction: string, recordIndex: number) => {
+    const txId = `${accountAddress}-${recordIndex}`;
+    
+    try {
+      setSubmittingTxs(prev => new Set(prev).add(txId));
+      
+      const result = await submitTransactionToRPC(signedRawTransaction);
+      
+      if (result.success && result.txHash) {
+        toast.success(
+          <div>
+            <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
+              Transaction Submitted Successfully!
+            </div>
+            <div style={{ fontFamily: 'monospace', fontSize: '12px', wordBreak: 'break-all' }}>
+              <strong>TX Hash:</strong> {result.txHash}
+            </div>
+            <div style={{ fontSize: '12px', marginTop: '4px' }}>
+              <a 
+                href={`https://sepolia.etherscan.io/tx/${result.txHash}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ color: '#007bff', textDecoration: 'underline' }}
+              >
+                View on Sepolia Etherscan →
+              </a>
+            </div>
+          </div>,
+          { duration: 8000 }
+        );
+      } else {
+        toast.error(`Failed to submit transaction: ${result.error}`);
+      }
+    } catch (error: any) {
+      console.error('Transaction submission error:', error);
+      toast.error(`Transaction submission failed: ${error.message}`);
+    } finally {
+      setSubmittingTxs(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(txId);
+        return newSet;
+      });
+    }
+  };
+
+  // Fetch provenance data when provenance tab is accessed
+  useEffect(() => {
+    if (activeTab === 'provenance' && router.isReady && accountAddress && connectedAddress && !provenanceData) {
+      fetchProvenanceData();
+    }
+  }, [activeTab, router.isReady, accountAddress, connectedAddress, provenanceData]);
   
 
   const cardStyle = {
@@ -602,11 +749,44 @@ const AccountDetailsPage: NextPage = () => {
 
   const copyToClipboard = async (text: string, label: string) => {
     try {
-      await navigator.clipboard.writeText(text);
-      toast.success(`${label} copied to clipboard!`);
+      // Try modern clipboard API first
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        toast.success(`${label} copied to clipboard!`);
+        return;
+      }
+      
+      // Fallback for older browsers or non-secure contexts
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      
+      if (successful) {
+        toast.success(`${label} copied to clipboard!`);
+      } else {
+        throw new Error('execCommand failed');
+      }
     } catch (err) {
       console.error('Failed to copy: ', err);
-      toast.error('Failed to copy to clipboard');
+      
+      // As a last resort, show the text in a prompt for manual copying
+      try {
+        if (window.prompt) {
+          window.prompt('Copy to clipboard: Ctrl+C, Enter', text);
+        } else {
+          toast.error('Copy failed. Please manually select and copy the text.');
+        }
+      } catch (promptErr) {
+        toast.error('Failed to copy to clipboard. Please copy manually.');
+      }
     }
   };
 
@@ -632,25 +812,8 @@ const AccountDetailsPage: NextPage = () => {
         ) : accountDetails ? (
           <>
             <div style={{ width: '100%', maxWidth: '800px' }}>
-              <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ marginBottom: '2rem' }}>
                 <h1 className={styles.title}>{accountDetails.name}</h1>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <button 
-                    style={{...buttonStyle, opacity: 0.5}} // Disabled for now
-                    onClick={() => setIsTransferModalOpen(true)}
-                    disabled={true}
-                  >
-                    PASS Transfer
-                  </button>
-                  <button 
-                    style={{...buttonStyle, backgroundColor: '#4CAF50'}}
-                    onClick={() => {
-                      setIsDomainTransferModalOpen(true);
-                    }}
-                  >
-                    Transfer Domain
-                  </button>
-                </div>
               </div>
               
               <div style={{
@@ -822,7 +985,29 @@ const AccountDetailsPage: NextPage = () => {
                         fontWeight: '600',
                         color: '#333'
                       }}>
-                        {accountDetails.balance}
+                        {(() => {
+                          // Show loading state while assets are being fetched
+                          if (isLoadingAssets) {
+                            return (
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: '16px' }} />
+                                Loading...
+                              </div>
+                            );
+                          }
+                          
+                          // Get ETH balance from subaccount assets
+                          if (subaccountAssets?.assets?.eth) {
+                            const ethAsset = subaccountAssets.assets.eth;
+                            const ethBalance = formatAmount(
+                              ethAsset.total_balance.toString(), 
+                              ethAsset.decimals, 
+                              ethAsset.symbol
+                            );
+                            return ethBalance;
+                          }
+                          return "0.0000 ETH";
+                        })()}
                       </div>
                     </div>
 
@@ -1006,13 +1191,21 @@ const AccountDetailsPage: NextPage = () => {
                   )}
                 </div>
               </div>
+              {/* Assets Section */}
               <div style={cardStyle}>
+                <h2 style={{ marginBottom: '20px', fontSize: '1.5rem', fontWeight: '600' }}>Assets</h2>
                 <div style={{ borderBottom: '1px solid #eaeaea', marginBottom: '20px' }}>
                   <button
-                    style={activeTab === 'messages' ? activeTabStyle : tabStyle}
-                    onClick={() => setActiveTab('messages')}
+                    style={activeTab === 'assets' ? activeTabStyle : tabStyle}
+                    onClick={() => setActiveTab('assets')}
                   >
-                    Message Signing History
+                    Subaccount Assets
+                  </button>
+                  <button
+                    style={activeTab === 'provenance' ? activeTabStyle : tabStyle}
+                    onClick={() => setActiveTab('provenance')}
+                  >
+                    Asset Provenance Log
                   </button>
                   <button
                     style={activeTab === 'inbox' ? activeTabStyle : tabStyle}
@@ -1022,29 +1215,132 @@ const AccountDetailsPage: NextPage = () => {
                   </button>
                 </div>
 
-                {activeTab === 'inbox' && (
-                  <div style={{ marginBottom: '16px', textAlign: 'right' }}>
-                    <button
-                      style={{
-                        ...buttonStyle,
-                        backgroundColor: '#28a745',
-                        padding: '8px 16px',
-                        fontSize: '0.9rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        marginLeft: 'auto'
-                      }}
-                      onClick={refreshInboxTransactions}
-                      disabled={isLoadingInbox}
-                    >
-                      <FontAwesomeIcon 
-                        icon={faSync} 
-                        spin={isLoadingInbox}
-                        style={{ fontSize: '0.8rem' }}
-                      />
-                      {isLoadingInbox ? 'Loading...' : 'Refresh Inbox'}
-                    </button>
+                {activeTab === 'assets' && (
+                  <div>
+                    <div style={{ marginBottom: '16px', textAlign: 'right' }}>
+                      <button
+                        style={{
+                          ...buttonStyle,
+                          backgroundColor: '#28a745',
+                          padding: '8px 16px',
+                          fontSize: '0.9rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          marginLeft: 'auto'
+                        }}
+                        onClick={fetchSubaccountAssets}
+                        disabled={isLoadingAssets}
+                      >
+                        <FontAwesomeIcon 
+                          icon={faSync} 
+                          spin={isLoadingAssets}
+                          style={{ fontSize: '0.8rem' }}
+                        />
+                        {isLoadingAssets ? 'Loading...' : 'Refresh Assets'}
+                      </button>
+                    </div>
+
+                    {isLoadingAssets ? (
+                      <p style={{ color: '#666', textAlign: 'center', padding: '20px' }}>Loading assets...</p>
+                    ) : !subaccountAssets || !subaccountAssets.assets ? (
+                      <p style={{ color: '#666' }}>No assets found in this wallet</p>
+                    ) : Object.keys(subaccountAssets.assets).length === 0 ? (
+                      <p style={{ color: '#666' }}>No assets registered yet</p>
+                    ) : (
+                      <div style={{ overflowY: 'auto', maxHeight: '600px' }}>
+                        {Object.entries(subaccountAssets.assets).map(([assetId, asset]: [string, any]) => (
+                          <div
+                            key={assetId}
+                            style={{
+                              padding: '16px',
+                              borderBottom: '1px solid #eaeaea',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'flex-start'
+                            }}
+                          >
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                                <span
+                                  style={{
+                                    backgroundColor: getTokenTypeColor(asset.token_type),
+                                    color: 'white',
+                                    padding: '4px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '0.8rem',
+                                    fontWeight: '500',
+                                    marginRight: '12px'
+                                  }}
+                                >
+                                  {asset.token_type}
+                                </span>
+                                <div style={{ fontWeight: '500', fontSize: '1.1rem' }}>
+                                  {formatAmount(asset.total_balance.toString(), asset.decimals, asset.symbol)}
+                                </div>
+                              </div>
+                              
+                              <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '4px' }}>
+                                <strong>{asset.name}</strong>
+                                {asset.token_id && ` (Token ID: ${asset.token_id})`}
+                              </div>
+                              
+                              {asset.contract_address && (
+                                <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '4px' }}>
+                                  Contract: <span style={{ fontFamily: 'monospace' }}>{asset.contract_address}</span>
+                                </div>
+                              )}
+                              
+                              {/* <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '4px' }}>
+                                <strong>Subaccount Balances:</strong>
+                              </div>
+                              {Object.entries(asset.subaccount_balances || {}).map(([subaccountId, balance]: [string, any]) => (
+                                <div key={subaccountId} style={{ color: '#666', fontSize: '0.8rem', marginLeft: '16px' }}>
+                                  {subaccountId}: {formatAmount(balance.toString(), asset.decimals, asset.symbol)}
+                                </div>
+                              ))} */}
+                            </div>
+                            
+                            <div style={{ marginLeft: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              <button
+                                style={{
+                                  ...buttonStyle,
+                                  backgroundColor: '#007bff',
+                                  padding: '6px 12px',
+                                  fontSize: '0.8rem',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  color: 'white'
+                                }}
+                                onClick={() => {
+                                  setSelectedAsset({ assetId, asset });
+                                  setIsAssetTransferModalOpen(true);
+                                }}
+                              >
+                                Transfer
+                              </button>
+                              <button
+                                style={{
+                                  ...buttonStyle,
+                                  backgroundColor: '#dc3545',
+                                  padding: '6px 12px',
+                                  fontSize: '0.8rem',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  color: 'white'
+                                }}
+                                onClick={() => {
+                                  setSelectedAsset({ assetId, asset });
+                                  setIsWithdrawModalOpen(true);
+                                }}
+                              >
+                                Withdraw
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1093,6 +1389,30 @@ const AccountDetailsPage: NextPage = () => {
 
                 {activeTab === 'inbox' && (
                   <div>
+                    <div style={{ marginBottom: '16px', textAlign: 'right' }}>
+                      <button
+                        style={{
+                          ...buttonStyle,
+                          backgroundColor: '#28a745',
+                          padding: '8px 16px',
+                          fontSize: '0.9rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          marginLeft: 'auto'
+                        }}
+                        onClick={refreshInboxTransactions}
+                        disabled={isLoadingInbox}
+                      >
+                        <FontAwesomeIcon 
+                          icon={faSync} 
+                          spin={isLoadingInbox}
+                          style={{ fontSize: '0.8rem' }}
+                        />
+                        {isLoadingInbox ? 'Loading...' : 'Refresh Inbox'}
+                      </button>
+                    </div>
+
                     {(() => {
                       // Debug logging
                       const filteredTransactions = inboxTransactions.filter(tx => tx.fromAddress && tx.fromAddress.toLowerCase() === connectedAddress?.toLowerCase());
@@ -1210,7 +1530,473 @@ const AccountDetailsPage: NextPage = () => {
                     )}
                   </div>
                 )}
+
+                {activeTab === 'provenance' && (
+                  <div>
+                    <div style={{ marginBottom: '16px', textAlign: 'right' }}>
+                      <button
+                        style={{
+                          ...buttonStyle,
+                          backgroundColor: '#17a2b8',
+                          padding: '8px 16px',
+                          fontSize: '0.9rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          marginLeft: 'auto'
+                        }}
+                        onClick={fetchProvenanceData}
+                        disabled={isLoadingProvenance}
+                      >
+                        <FontAwesomeIcon 
+                          icon={faSync} 
+                          spin={isLoadingProvenance}
+                          style={{ fontSize: '0.8rem' }}
+                        />
+                        {isLoadingProvenance ? 'Loading...' : 'Refresh Provenance'}
+                      </button>
+                    </div>
+
+                    {isLoadingProvenance ? (
+                      <p style={{ color: '#666', textAlign: 'center', padding: '20px' }}>Loading provenance data...</p>
+                    ) : !provenanceData || !provenanceData.provenance_records ? (
+                      <p style={{ color: '#666' }}>No provenance records found for this subaccount</p>
+                    ) : provenanceData.provenance_records.length === 0 ? (
+                      <p style={{ color: '#666' }}>No asset transactions recorded yet</p>
+                    ) : (
+                      <div style={{ overflowY: 'auto', maxHeight: '600px' }}>
+                        {provenanceData.provenance_records
+                          .sort((a: any, b: any) => b.timestamp - a.timestamp) // Sort by timestamp descending (most recent first)
+                          .map((record: any, index: number) => {
+                          const operation = record.operation;
+                          const timestamp = new Date(record.timestamp * 1000).toLocaleString();
+                          
+                          // Helper function to get correct decimals for asset
+                          const getAssetDecimals = (assetId: string) => {
+                            // Default decimals mapping for common assets
+                            const defaultDecimals: { [key: string]: number } = {
+                              'eth': 18,
+                              'usdc': 6,
+                              'usdt': 6,
+                              'dai': 18,
+                              'wbtc': 8
+                            };
+                            
+                            // Try to get decimals from subaccountAssets if available
+                            if (subaccountAssets?.assets?.[assetId]?.decimals !== undefined) {
+                              return subaccountAssets.assets[assetId].decimals;
+                            }
+                            
+                            // Fall back to default mapping
+                            return defaultDecimals[assetId.toLowerCase()] || 18;
+                          };
+
+                          // Helper function to get actual subaccount address
+                          const getSubaccountAddress = (subaccountId: string) => {
+                            // Check if we have the mapping from the API response
+                            if (provenanceData.subaccount_mapping && provenanceData.subaccount_mapping[subaccountId]) {
+                              return provenanceData.subaccount_mapping[subaccountId];
+                            }
+                            
+                            // Fallback to known connected address
+                            if (subaccountId === provenanceData.subaccount_id && provenanceData.subaccount_address) {
+                              return provenanceData.subaccount_address;
+                            }
+                            
+                            // Last resort placeholder
+                            return `Unknown-${subaccountId}`;
+                          };
+
+                          // Helper function to format address for display
+                          const formatAddress = (address: string) => {
+                            if (address.startsWith('0x') && address.length === 42) {
+                              return `${address}`;
+                            }
+                            return address;
+                          };
+                          
+                          // Determine operation type and details
+                          let operationType = '';
+                          let operationDetails = '';
+                          let operationColor = '#6c757d';
+                          
+                          if (operation.Claim) {
+                            const decimals = getAssetDecimals(operation.Claim.asset_id);
+                            operationType = 'Claim';
+                            operationDetails = `${formatAmount(operation.Claim.amount.toString(), decimals, operation.Claim.asset_id)}`;
+                            operationColor = '#28a745';
+                          } else if (operation.Transfer) {
+                            const decimals = getAssetDecimals(operation.Transfer.asset_id);
+                            const isOutgoing = operation.Transfer.from_subaccount === provenanceData.subaccount_id;
+                            operationType = isOutgoing ? 'PASS Transfer Out' : 'PASS Transfer In';
+                            operationDetails = `${formatAmount(operation.Transfer.amount.toString(), decimals, operation.Transfer.asset_id)}`;
+                            operationColor = isOutgoing ? '#dc3545' : '#007bff';
+                          } else if (operation.Withdraw) {
+                            const decimals = getAssetDecimals(operation.Withdraw.asset_id);
+                            operationType = 'Withdraw';
+                            operationDetails = `${formatAmount(operation.Withdraw.amount.toString(), decimals, operation.Withdraw.asset_id)}`;
+                            operationColor = '#fd7e14';
+                          }
+
+                          return (
+                            <div
+                              key={index}
+                              style={{
+                                padding: '16px',
+                                borderBottom: '1px solid #eaeaea',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'flex-start'
+                              }}
+                            >
+                              <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                                  <span
+                                    style={{
+                                      backgroundColor: operationColor,
+                                      color: 'white',
+                                      padding: '4px 8px',
+                                      borderRadius: '4px',
+                                      fontSize: '0.8rem',
+                                      fontWeight: '500',
+                                      marginRight: '12px'
+                                    }}
+                                  >
+                                    {operationType}
+                                  </span>
+                                  <div style={{ fontWeight: '500', fontSize: '1rem' }}>
+                                    {operationDetails.toUpperCase()}
+                                  </div>
+                                </div>
+                                
+                                <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '4px' }}>
+                                  <strong>Time:</strong> {timestamp}
+                                </div>
+
+                                {/* Show transfer destination/source address */}
+                                {operation.Transfer && (
+                                  <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '4px' }}>
+                                    <strong>{operation.Transfer.from_subaccount === provenanceData.subaccount_id ? 'To:' : 'From:'}</strong>{' '}
+                                    <span style={{ fontFamily: 'monospace' }}>
+                                      {formatAddress(getSubaccountAddress(
+                                        operation.Transfer.from_subaccount === provenanceData.subaccount_id 
+                                          ? operation.Transfer.to_subaccount 
+                                          : operation.Transfer.from_subaccount
+                                      ))}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* Show withdrawal destination */}
+                                {operation.Withdraw && (
+                                  <>
+                                    <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '4px' }}>
+                                      <strong>To:</strong>{' '}
+                                      <span style={{ fontFamily: 'monospace' }}>
+                                        {formatAddress(operation.Withdraw.destination)}
+                                      </span>
+                                    </div>
+                                    
+                                    {/* Show withdrawal nonce */}
+                                    {operation.Withdraw.nonce && operation.Withdraw.nonce > 0 && (
+                                      <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '4px' }}>
+                                        <strong>Nonce:</strong> {operation.Withdraw.nonce}
+                                      </div>
+                                    )}
+                                    
+                                    {/* Show gas price and gas limit */}
+                                    {operation.Withdraw.gas_price && operation.Withdraw.gas_price > 0 && (
+                                      <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '4px' }}>
+                                        <strong>Gas Price:</strong> {operation.Withdraw.gas_price} wei ({(operation.Withdraw.gas_price / 1000000000).toFixed(2)} Gwei)
+                                      </div>
+                                    )}
+                                    
+                                    {operation.Withdraw.gas_limit && operation.Withdraw.gas_limit > 0 && (
+                                      <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '4px' }}>
+                                        <strong>Gas Limit:</strong> {operation.Withdraw.gas_limit.toLocaleString()} gas units
+                                      </div>
+                                    )}
+                                    
+                                    {/* Show signed raw transaction */}
+                                    {operation.Withdraw.signed_raw_transaction && 
+                                     operation.Withdraw.signed_raw_transaction !== 'pending' && (
+                                      <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '4px' }}>
+                                        <strong>Signed Transaction:</strong>
+                                        <div style={{ 
+                                          fontFamily: 'monospace', 
+                                          fontSize: '0.8rem', 
+                                          backgroundColor: '#f8f9fa', 
+                                          padding: '8px', 
+                                          borderRadius: '4px',
+                                          marginTop: '4px',
+                                          wordBreak: 'break-all',
+                                          border: '1px solid #e9ecef',
+                                          maxHeight: '80px',
+                                          overflow: 'auto'
+                                        }}>
+                                          {operation.Withdraw.signed_raw_transaction}
+                                        </div>
+                                        <div style={{ 
+                                          display: 'flex', 
+                                          justifyContent: 'space-between', 
+                                          alignItems: 'center',
+                                          marginTop: '8px' 
+                                        }}>
+                                          <div style={{ fontSize: '0.8rem', color: '#6c757d' }}>
+                                            Copy this transaction to submit to any Ethereum RPC endpoint
+                                          </div>
+                                          <button
+                                            onClick={() => handleSubmitTransaction(operation.Withdraw.signed_raw_transaction, index)}
+                                            disabled={submittingTxs.has(`${accountAddress}-${index}`)}
+                                            style={{
+                                              padding: '6px 12px',
+                                              backgroundColor: submittingTxs.has(`${accountAddress}-${index}`) ? '#6c757d' : '#28a745',
+                                              color: 'white',
+                                              border: 'none',
+                                              borderRadius: '4px',
+                                              fontSize: '0.8rem',
+                                              cursor: submittingTxs.has(`${accountAddress}-${index}`) ? 'not-allowed' : 'pointer',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '4px'
+                                            }}
+                                          >
+                                            {submittingTxs.has(`${accountAddress}-${index}`) ? (
+                                              <>
+                                                <FontAwesomeIcon icon={faSpinner} spin />
+                                                Submitting...
+                                              </>
+                                            ) : (
+                                              <>
+                                                <FontAwesomeIcon icon={faPaperPlane} />
+                                                Submit to Sepolia
+                                              </>
+                                            )}
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+
+                                {/* Show claim source */}
+                                {operation.Claim && (
+                                  <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '4px' }}>
+                                    <strong>From Deposit:</strong>{' '}
+                                    <span style={{ fontFamily: 'monospace' }}>
+                                      {operation.Claim.deposit_id}
+                                    </span>
+                                  </div>
+                                )}
+                                
+                                {record.block_number && (
+                                  <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '4px' }}>
+                                    <strong>Block:</strong> {record.block_number}
+                                  </div>
+                                )}
+
+                                {/* Show asset ID if available */}
+                                {(operation.Claim?.asset_id || operation.Transfer?.asset_id || operation.Withdraw?.asset_id) && (
+                                  <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '4px' }}>
+                                    <strong>Asset:</strong> <span style={{ fontFamily: 'monospace' }}>
+                                      {(operation.Claim?.asset_id || operation.Transfer?.asset_id || operation.Withdraw?.asset_id).toUpperCase()}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* {activeTab === 'inbox' && (
+                  <div>
+                    <div style={{ marginBottom: '16px', textAlign: 'right' }}>
+                      <button
+                        style={{
+                          ...buttonStyle,
+                          backgroundColor: '#28a745',
+                          padding: '8px 16px',
+                          fontSize: '0.9rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          marginLeft: 'auto'
+                        }}
+                        onClick={refreshInboxTransactions}
+                        disabled={isLoadingInbox}
+                      >
+                        <FontAwesomeIcon 
+                          icon={faSync} 
+                          spin={isLoadingInbox}
+                          style={{ fontSize: '0.8rem' }}
+                        />
+                        {isLoadingInbox ? 'Loading...' : 'Refresh Inbox'}
+                      </button>
+                    </div>
+
+                    {inboxTransactions.length === 0 ? (
+                      <p style={{ color: '#666' }}>No transactions in the inbox yet</p>
+                    ) : (
+                      <div style={{
+                        border: '1px solid #e9ecef',
+                        borderRadius: '8px',
+                        overflow: 'hidden'
+                      }}>
+                        {inboxTransactions.map((tx, index) => (
+                          <div
+                            key={tx.hash}
+                            style={{
+                              padding: '16px',
+                              borderBottom: index < inboxTransactions.length - 1 ? '1px solid #eaeaea' : 'none',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              backgroundColor: 'white'
+                            }}
+                          >
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                                <span style={{ 
+                                  fontWeight: '500', 
+                                  marginRight: '12px',
+                                  fontSize: '1rem'
+                                }}>
+                                  {formatAmount(tx.amount.toString(), tx.decimals, tx.symbol)}
+                                </span>
+                                <span
+                                  style={{
+                                    backgroundColor: tx.claimed ? '#28a745' : '#ffc107',
+                                    color: tx.claimed ? 'white' : '#212529',
+                                    padding: '4px 8px',
+                                    borderRadius: '12px',
+                                    fontSize: '0.8rem',
+                                    fontWeight: '500'
+                                  }}
+                                >
+                                  {tx.claimed ? 'Claimed' : 'Pending'}
+                                </span>
+                              </div>
+                              
+                              <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '4px' }}>
+                                <strong>From:</strong> {tx.fromAddress}
+                              </div>
+                              
+                              <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '4px' }}>
+                                <strong>Asset:</strong> {tx.name} ({tx.symbol})
+                              </div>
+                              
+                              <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '4px' }}>
+                                <strong>Time:</strong> {new Date(tx.createdAt).toLocaleString()}
+                              </div>
+
+                              <div style={{ color: '#666', fontSize: '0.8rem', fontFamily: 'monospace' }}>
+                                Tx: {tx.hash}
+                              </div>
+                            </div>
+
+                            {!tx.claimed && (
+                              <button
+                                style={{
+                                  ...buttonStyle,
+                                  backgroundColor: '#007bff',
+                                  marginLeft: '16px',
+                                  padding: '8px 16px'
+                                }}
+                                onClick={() => handleClaim(tx.hash)}
+                                disabled={claimingTxId === tx.hash}
+                              >
+                                {claimingTxId === tx.hash ? 'Claiming...' : 'Claim'}
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div> */}
+                {/* } */}
               </div>
+
+              {/* Messages Section */}
+              <div style={cardStyle}>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  marginBottom: '20px'
+                }}>
+                  <h2 style={{ fontSize: '1.5rem', fontWeight: '600', margin: '0' }}>Messages</h2>
+                  <button 
+                    style={{...buttonStyle, backgroundColor: '#4CAF50'}}
+                    onClick={() => {
+                      setIsDomainTransferModalOpen(true);
+                    }}
+                  >
+                    Transfer Domain
+                  </button>
+                </div>
+
+                <div>
+                  <h3 style={{ 
+                    marginBottom: '16px', 
+                    fontSize: '1.2rem', 
+                    fontWeight: '500',
+                    color: '#333'
+                  }}>
+                    Message Signing History
+                  </h3>
+                  {accountDetails.signedMessages.length === 0 ? (
+                    <p style={{ color: '#666' }}>No signed messages yet</p>
+                  ) : (
+                    <div style={{
+                      border: '1px solid #e9ecef',
+                      borderRadius: '8px',
+                      overflow: 'hidden'
+                    }}>
+                      {accountDetails.signedMessages.map((msg, index) => (
+                        <div
+                          key={index}
+                          style={{
+                            padding: '16px',
+                            borderBottom: index < accountDetails.signedMessages.length - 1 ? '1px solid #eaeaea' : 'none',
+                            backgroundColor: 'white'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <div style={{ fontWeight: '500' }}>{msg.domainUrl}</div>
+                            <div style={{ color: '#666', fontSize: '0.9rem' }}>
+                              {new Date(msg.createdAt).toLocaleString()}
+                            </div>
+                          </div>
+                          <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '8px' }}>
+                            Signer: {msg.signer}
+                          </div>
+                          <div style={{ 
+                            background: '#f5f5f5', 
+                            padding: '12px', 
+                            borderRadius: '6px',
+                            fontSize: '0.9rem',
+                            wordBreak: 'break-all'
+                          }}>
+                            <div style={{ marginBottom: '8px' }}>Message: {msg.message}</div>
+                            <div>Signature: {msg.signature.substring(0, 32)}...</div>
+                          </div>
+                          {msg.sessionId && (
+                            <div style={{ color: '#666', fontSize: '0.9rem', marginTop: '8px' }}>
+                              Session ID: {msg.sessionId}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+
             </div>
           </>
         ) : (
@@ -1245,6 +2031,33 @@ const AccountDetailsPage: NextPage = () => {
         onSign={handleApproveProposal}
         onReject={handleRejectProposal}
         messageRequest={messageRequest || undefined}
+      />
+
+      <AssetTransferModal
+        isOpen={isAssetTransferModalOpen}
+        onClose={() => setIsAssetTransferModalOpen(false)}
+        assetId={selectedAsset?.assetId || ''}
+        asset={selectedAsset?.asset || {}}
+        walletAddress={accountAddress as string}
+        connectedAddress={connectedAddress as string}
+        onTransferComplete={() => {
+          fetchSubaccountAssets();
+          setSelectedAsset(null);
+        }}
+      />
+
+      <WithdrawModal
+        isOpen={isWithdrawModalOpen}
+        onClose={() => setIsWithdrawModalOpen(false)}
+        assetId={selectedAsset?.assetId || ''}
+        asset={selectedAsset?.asset || {}}
+        walletAddress={accountAddress as string}
+        connectedAddress={connectedAddress as string}
+        onWithdrawComplete={() => {
+          fetchSubaccountAssets();
+          fetchProvenanceData();
+          setSelectedAsset(null);
+        }}
       />
     </div>
   );

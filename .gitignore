@@ -63,3 +63,5 @@ nitro-enclave/target/
 nitro-enclave/nitro_enclave_*.eif
 nitro-enclave/nitro-enclave
 http-server.log
+
+*/target/

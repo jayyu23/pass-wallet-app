@@ -34,7 +34,7 @@ clean:
 
 enclave: server
 	@echo "Starting enclave..."
-	@ENCLAVE_ID_NEW=$$(nitro-cli run-enclave --eif-path nitro_enclave_server.eif --cpu-count 2 --memory 256 --debug-mode | grep -o 'i-[0-9a-f]*-enc[0-9a-f]*' | head -1) && \
+	@ENCLAVE_ID_NEW=$$(nitro-cli run-enclave --eif-path nitro_enclave_server.eif --cpu-count 2 --memory 256 --debug-mode --enclave-cid 16 | grep -o 'i-[0-9a-f]*-enc[0-9a-f]*' | head -1) && \
 	export ENCLAVE_ID=$$ENCLAVE_ID_NEW && \
 	export ENCLAVE_CID=16 && \
 	echo "export ENCLAVE_ID=$$ENCLAVE_ID_NEW && export ENCLAVE_CID=16"
@@ -42,3 +42,7 @@ enclave: server
 http-server:
 	cargo run --bin http-server
 
+stop:
+	sudo nitro-cli terminate-enclave --all
+
+start: enclave
