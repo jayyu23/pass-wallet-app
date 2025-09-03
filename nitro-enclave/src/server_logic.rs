@@ -108,6 +108,40 @@ pub enum Command {
         domain: String,
         message: String,
     },
+    
+    // Asset operations
+    GetAssets { 
+        wallet_address: String,
+    },
+    
+    // Provenance operations
+    GetProvenanceLog { 
+        wallet_address: String,
+    },
+    GetProvenanceByAsset { 
+        wallet_address: String,
+        asset_id: String,
+    },
+    GetProvenanceBySubaccount { 
+        wallet_address: String,
+        subaccount_id: String,
+    },
+    // Withdrawal operations
+    WithdrawToExternal {
+        wallet_address: String,
+        subaccount_id: String,
+        asset_id: String,
+        amount: u64,
+        destination: String,
+        gas_price: Option<u64>,
+        gas_limit: Option<u64>,
+        chain_id: u64,
+        override_nonce: Option<u64>,
+    },
+    GetOutboxQueue,
+    RemoveFromOutbox {
+        nonce: u64,
+    },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -569,6 +603,148 @@ pub fn parse_command(command: &str) -> Result<Response, String> {
                     success: false,
                     data: None,
                     error: Some(format!("Failed to sign GSM: {}", e)),
+                }),
+            }
+        }
+
+        Command::GetAssets { wallet_address } => {
+            match PASS_WALLET_MANAGER.get_wallet_assets(&wallet_address) {
+                Ok(assets_with_balances) => Ok(Response {
+                    success: true,
+                    data: Some(assets_with_balances),
+                    error: None,
+                }),
+                Err(e) => Ok(Response {
+                    success: false,
+                    data: None,
+                    error: Some(format!("Failed to get assets: {}", e)),
+                }),
+            }
+        }
+
+        Command::GetProvenanceLog { wallet_address } => {
+            match PASS_WALLET_MANAGER.get_provenance_log(&wallet_address) {
+                Ok(provenance_log) => Ok(Response {
+                    success: true,
+                    data: Some(provenance_log),
+                    error: None,
+                }),
+                Err(e) => Ok(Response {
+                    success: false,
+                    data: None,
+                    error: Some(format!("Failed to get provenance log: {}", e)),
+                }),
+            }
+        }
+
+        Command::GetProvenanceByAsset { wallet_address, asset_id } => {
+            match PASS_WALLET_MANAGER.get_provenance_by_asset(&wallet_address, &asset_id) {
+                Ok(provenance_log) => Ok(Response {
+                    success: true,
+                    data: Some(provenance_log),
+                    error: None,
+                }),
+                Err(e) => Ok(Response {
+                    success: false,
+                    data: None,
+                    error: Some(format!("Failed to get provenance log by asset: {}", e)),
+                }),
+            }
+        }
+
+        Command::GetProvenanceBySubaccount { wallet_address, subaccount_id } => {
+            match PASS_WALLET_MANAGER.get_provenance_by_subaccount(&wallet_address, &subaccount_id) {
+                Ok(provenance_log) => Ok(Response {
+                    success: true,
+                    data: Some(provenance_log),
+                    error: None,
+                }),
+                Err(e) => Ok(Response {
+                    success: false,
+                    data: None,
+                    error: Some(format!("Failed to get provenance log by subaccount: {}", e)),
+                }),
+            }
+        }
+
+        // Withdrawal operations
+        Command::WithdrawToExternal { 
+            wallet_address, 
+            subaccount_id, 
+            asset_id, 
+            amount, 
+            destination, 
+            gas_price, 
+            gas_limit, 
+            chain_id,
+            override_nonce
+        } => {
+            match PASS_WALLET_MANAGER.withdraw_to_external(
+                &wallet_address, 
+                &subaccount_id, 
+                &asset_id, 
+                amount, 
+                &destination, 
+                gas_price, 
+                gas_limit, 
+                chain_id,
+                override_nonce
+            ) {
+                Ok((signed_transaction, nonce, actual_gas_price, actual_gas_limit)) => Ok(Response {
+                    success: true,
+                    data: Some(serde_json::json!({
+                        "signed_raw_transaction": signed_transaction,
+                        "wallet_address": wallet_address,
+                        "subaccount_id": subaccount_id,
+                        "asset_id": asset_id,
+                        "amount": amount,
+                        "destination": destination,
+                        "chain_id": chain_id,
+                        "nonce": nonce,
+                        "gas_price": actual_gas_price,
+                        "gas_limit": actual_gas_limit
+                    })),
+                    error: None,
+                }),
+                Err(e) => Ok(Response {
+                    success: false,
+                    data: None,
+                    error: Some(format!("Withdrawal failed: {}", e)),
+                }),
+            }
+        }
+
+        Command::GetOutboxQueue => {
+            match PASS_WALLET_MANAGER.get_outbox_queue() {
+                Ok(outbox_queue) => Ok(Response {
+                    success: true,
+                    data: Some(serde_json::json!({
+                        "outbox_queue": outbox_queue
+                    })),
+                    error: None,
+                }),
+                Err(e) => Ok(Response {
+                    success: false,
+                    data: None,
+                    error: Some(format!("Failed to get outbox queue: {}", e)),
+                }),
+            }
+        }
+
+        Command::RemoveFromOutbox { nonce } => {
+            match PASS_WALLET_MANAGER.remove_from_outbox(nonce) {
+                Ok(()) => Ok(Response {
+                    success: true,
+                    data: Some(serde_json::json!({
+                        "message": "Transaction removed from outbox",
+                        "nonce": nonce
+                    })),
+                    error: None,
+                }),
+                Err(e) => Ok(Response {
+                    success: false,
+                    data: None,
+                    error: Some(format!("Failed to remove from outbox: {}", e)),
                 }),
             }
         }

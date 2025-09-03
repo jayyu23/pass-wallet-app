@@ -155,7 +155,7 @@ POST /pass/wallets/assets
 ```json
 {
   "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
-  "asset_id": "eth_mainnet",
+          "asset_id": "eth",
   "token_type": "ETH",
   "contract_address": null,
   "token_id": null,
@@ -169,9 +169,67 @@ POST /pass/wallets/assets
 ```json
 {
   "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
-  "asset_id": "eth_mainnet",
+          "asset_id": "eth",
   "symbol": "ETH",
   "name": "Ethereum"
+}
+```
+
+#### Get Assets
+```
+POST /pass/wallets/assets/list
+```
+
+**Request Body:**
+```json
+{
+  "wallet_address": "0x1234567890abcdef1234567890abcdef12345678"
+}
+```
+
+**Response:**
+```json
+{
+  "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
+  "assets": {
+    "eth_mainnet": {
+      "token_type": "ETH",
+      "contract_address": null,
+      "token_id": null,
+      "symbol": "ETH",
+      "name": "Ethereum",
+      "decimals": 18,
+      "total_balance": 5000000000000000000,
+      "subaccount_balances": {
+        "main_account": 3000000000000000000,
+        "trading_account": 2000000000000000000
+      }
+    },
+            "usdc": {
+      "token_type": "ERC20",
+      "contract_address": "0xa0b86a33e6776e7bb8c4c9f8d9b2d5f1c4e3f1d2",
+      "token_id": null,
+      "symbol": "USDC",
+      "name": "USD Coin",
+      "decimals": 6,
+      "total_balance": 1000000000,
+      "subaccount_balances": {
+        "main_account": 1000000000
+      }
+    },
+    "nft_collection": {
+      "token_type": "ERC721",
+      "contract_address": "0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d",
+      "token_id": "1234",
+      "symbol": "BAYC",
+      "name": "Bored Ape Yacht Club",
+      "decimals": 0,
+      "total_balance": 1,
+      "subaccount_balances": {
+        "collectibles_account": 1
+      }
+    }
+  }
 }
 ```
 
@@ -209,7 +267,7 @@ POST /pass/wallets/deposits
 ```json
 {
   "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
-  "asset_id": "eth_mainnet",
+          "asset_id": "eth",
   "amount": 1000000000000000000,
   "deposit_id": "deposit_12345",
   "transaction_hash": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
@@ -223,7 +281,7 @@ POST /pass/wallets/deposits
 ```json
 {
   "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
-  "asset_id": "eth_mainnet",
+          "asset_id": "eth",
   "amount": 1000000000000000000,
   "deposit_id": "deposit_12345",
   "transaction_hash": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
@@ -274,7 +332,7 @@ POST /pass/wallets/transfers
 ```json
 {
   "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
-  "asset_id": "eth_mainnet",
+          "asset_id": "eth",
   "amount": 500000000000000000,
   "from_subaccount": "main_account",
   "to_subaccount": "trading_account"
@@ -285,7 +343,7 @@ POST /pass/wallets/transfers
 ```json
 {
   "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
-  "asset_id": "eth_mainnet",
+          "asset_id": "eth",
   "amount": 500000000000000000,
   "from_subaccount": "main_account",
   "to_subaccount": "trading_account",
@@ -303,7 +361,7 @@ POST /pass/wallets/withdrawals
 ```json
 {
   "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
-  "asset_id": "eth_mainnet",
+          "asset_id": "eth",
   "amount": 100000000000000000,
   "subaccount_id": "main_account",
   "destination": "0x9876543210fedcba9876543210fedcba98765432"
@@ -314,7 +372,7 @@ POST /pass/wallets/withdrawals
 ```json
 {
   "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
-  "asset_id": "eth_mainnet",
+          "asset_id": "eth",
   "amount": 100000000000000000,
   "subaccount_id": "main_account",
   "destination": "0x9876543210fedcba9876543210fedcba98765432",
@@ -340,7 +398,7 @@ POST /pass/wallets/outbox
   "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
   "processed_items": [
     {
-      "asset_id": "eth_mainnet",
+              "asset_id": "eth",
       "amount": 100000000000000000,
       "external_destination": "0x9876543210fedcba9876543210fedcba98765432",
       "nonce": 0
@@ -369,7 +427,7 @@ POST /pass/wallets/balance
 {
   "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
   "subaccount_id": "main_account",
-  "asset_id": "eth_mainnet",
+          "asset_id": "eth",
   "balance": 500000000000000000
 }
 ```
@@ -393,8 +451,8 @@ POST /pass/wallets/balances
   "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
   "subaccount_id": "main_account",
   "balances": {
-    "eth_mainnet": 500000000000000000,
-    "usdc_mainnet": 1000000000
+                "eth": 500000000000000000,
+            "usdc": 1000000000
   }
 }
 ```
@@ -453,7 +511,7 @@ Common HTTP status codes:
      -H "Content-Type: application/json" \
      -d '{
        "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
-       "asset_id": "eth_mainnet",
+               "asset_id": "eth",
        "token_type": "ETH",
        "contract_address": null,
        "token_id": null,
@@ -475,13 +533,22 @@ Common HTTP status codes:
      }'
    ```
 
-4. **Make a deposit**
+4. **List all assets in the wallet**
+   ```bash
+   curl -X POST http://localhost:5000/pass/wallets/assets/list \
+     -H "Content-Type: application/json" \
+     -d '{
+       "wallet_address": "0x1234567890abcdef1234567890abcdef12345678"
+     }'
+   ```
+
+5. **Make a deposit**
    ```bash
    curl -X POST http://localhost:5000/pass/wallets/deposits \
      -H "Content-Type: application/json" \
      -d '{
        "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
-       "asset_id": "eth_mainnet",
+               "asset_id": "eth",
        "amount": 1000000000000000000,
        "deposit_id": "deposit_12345",
        "transaction_hash": "0xabcdef...",
@@ -491,7 +558,7 @@ Common HTTP status codes:
      }'
    ```
 
-5. **Claim the deposit**
+6. **Claim the deposit**
    ```bash
    curl -X POST http://localhost:5000/pass/wallets/claims \
      -H "Content-Type: application/json" \
@@ -502,7 +569,7 @@ Common HTTP status codes:
      }'
    ```
 
-6. **Check balance**
+7. **Check balance**
    ```bash
    curl -X POST http://localhost:5000/pass/wallets/balance \
      -H "Content-Type: application/json" \
@@ -538,6 +605,138 @@ All cryptographic operations and key management happen within the secure enclave
 - Wallet addresses are derived from enclave-generated keys
 - Transaction signing happens within the enclave using TEE-protected keys
 - Complete audit trail maintained through provenance history
+
+### Provenance Log Endpoints
+
+#### Get Full Provenance Log
+
+Get the complete provenance history for a wallet, showing all claims, transfers, and withdrawals.
+
+**Endpoint:** `POST /pass/wallets/provenance`
+
+**Request:**
+```json
+{
+  "wallet_address": "0x1234567890abcdef1234567890abcdef12345678"
+}
+```
+
+**Response:**
+```json
+{
+  "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
+  "provenance_records": [
+    {
+      "operation": {
+        "Claim": {
+          "asset_id": "eth",
+          "amount": 1000000000000000000,
+          "deposit_id": "0xabcdef...",
+          "subaccount_id": "main"
+        }
+      },
+      "timestamp": 1699200000,
+      "block_number": null
+    },
+    {
+      "operation": {
+        "Transfer": {
+          "asset_id": "eth",
+          "amount": 500000000000000000,
+          "from_subaccount": "main",
+          "to_subaccount": "savings"
+        }
+      },
+      "timestamp": 1699200100,
+      "block_number": null
+    }
+  ]
+}
+```
+
+#### Get Provenance by Asset
+
+Get provenance history filtered by a specific asset.
+
+**Endpoint:** `POST /pass/wallets/provenance/asset`
+
+**Request:**
+```json
+{
+  "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
+  "asset_id": "eth"
+}
+```
+
+**Response:**
+```json
+{
+  "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
+  "asset_id": "eth",
+  "provenance_records": [
+    {
+      "operation": {
+        "Claim": {
+          "asset_id": "eth",
+          "amount": 1000000000000000000,
+          "deposit_id": "0xabcdef...",
+          "subaccount_id": "main"
+        }
+      },
+      "timestamp": 1699200000,
+      "block_number": null
+    }
+  ]
+}
+```
+
+#### Get Provenance by Subaccount
+
+Get provenance history filtered by a specific subaccount.
+
+**Endpoint:** `POST /pass/wallets/provenance/subaccount`
+
+**Request:**
+```json
+{
+  "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
+  "subaccount_id": "main"
+}
+```
+
+**Response:**
+```json
+{
+  "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
+  "subaccount_id": "main",
+  "provenance_records": [
+    {
+      "operation": {
+        "Claim": {
+          "asset_id": "eth",
+          "amount": 1000000000000000000,
+          "deposit_id": "0xabcdef...",
+          "subaccount_id": "main"
+        }
+      },
+      "timestamp": 1699200000,
+      "block_number": null
+    },
+    {
+      "operation": {
+        "Transfer": {
+          "asset_id": "eth",
+          "amount": 500000000000000000,
+          "from_subaccount": "main",
+          "to_subaccount": "savings"
+        }
+      },
+      "timestamp": 1699200100,
+      "block_number": null
+    }
+  ]
+}
+```
 
 ## Environment Variables
 

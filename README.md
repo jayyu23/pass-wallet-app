@@ -14,7 +14,7 @@ PassWallet is a decentralized wallet application that enables secure key managem
 - **Message Signing**: Sign messages securely through the enclave
 - **Transaction History**: View transaction history and signed message records
 - **Asset Management**: View and transfer assets (ETH, USDC, etc.)
-- **Secure Key Management**: Key encumbrance takes place inside of an AWS Nitro Enclave. See `nitro-enclave` folder for more details on server implementation. We also provide a Python simulation of the enclave in `py-kms-sim` folder for API testing.
+- **Secure Key Management**: Key encumbrance takes place inside of an AWS Nitro Enclave, ensuring that all signing logic is handled by pre-defined rules and cannot be overwritten arbitrarily by account owner. See `nitro-enclave` folder for more details on server implementation. We also provide a Python simulation of the enclave in `py-kms-sim` folder for API testing.
 
 ## Quick Start
 
@@ -73,6 +73,20 @@ npm run dev
 For server deployment, see `Makefile` for deployment commands.
 
 Visit `http://localhost:3000` to use the application.
+
+## API Documentation
+
+For detailed HTTP API documentation, see [`nitro-enclave/PASS_WALLET_API.md`](nitro-enclave/PASS_WALLET_API.md). The API provides RESTful endpoints for:
+
+- **Wallet Management**: Create and list PASS wallets
+- **Asset Management**: Add assets and retrieve all assets in the ledger
+- **Subaccount Management**: Create and manage wallet subaccounts
+- **Deposit/Withdrawal Operations**: Handle external deposits and withdrawals
+- **Internal Transfers**: Transfer assets between subaccounts
+- **Balance Queries**: Check individual and subaccount balances
+- **Message Signing**: Sign messages using wallet keys
+
+The HTTP server runs on port 5000 by default and communicates with the Nitro Enclave via VSOCK for secure operations.
 
 ## Development
 

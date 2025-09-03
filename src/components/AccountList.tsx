@@ -76,7 +76,7 @@ const AccountsList = () => {
 
   const handleSubmitNewAccount = async () => {
     try {
-      const response = await fetch('/api/account/', {
+      const response = await fetch('/api/account', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

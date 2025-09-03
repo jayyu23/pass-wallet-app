@@ -4,7 +4,7 @@ TEE Backend for PASS Wallet, written for AWS Nitro Enclave architecture.
 
 - `lib.rs` contains entrypoint code for default Vsock client/server.
 - `http_main` and `http_client` contain code for the HTTP to Vsock proxy server.
-- Start HTTP proxy server: `nitro-vsock-sample]$ cargo run --bin http-server`
+- Start HTTP proxy server: `cargo run --bin http-server`
 - Proxy Server created using Axum
 - Use JSON strings to parse in commands
 - Default Nitro Vsock example documentation and deployment in [NITRO_VSOCK.md](NITRO_VSOCK.md)

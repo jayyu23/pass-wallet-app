@@ -3,6 +3,30 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use anyhow::{Result, anyhow};
 use crate::key_manager::EnclaveKMS;
+// Helper function to convert string address to bytes
+fn parse_address(addr_str: &str) -> Result<Vec<u8>> {
+    let clean_addr = addr_str.strip_prefix("0x").unwrap_or(addr_str);
+    if clean_addr.len() != 40 {
+        return Err(anyhow!("Invalid address length"));
+    }
+    hex::decode(clean_addr).map_err(|e| anyhow!("Invalid address hex: {}", e))
+}
+
+// Helper function to convert u64 to big-endian bytes (removing leading zeros)
+fn u64_to_be_bytes_minimal(value: u64) -> Vec<u8> {
+    if value == 0 {
+        return vec![0];
+    }
+    let bytes = value.to_be_bytes();
+    let mut start = 0;
+    for (i, &byte) in bytes.iter().enumerate() {
+        if byte != 0 {
+            start = i;
+            break;
+        }
+    }
+    bytes[start..].to_vec()
+}
 
 /// Asset type identifier (e.g., "ETH", "USDC", etc.)
 pub type AssetType = String;
@@ -81,7 +105,7 @@ pub struct OutboxEntry {
 pub enum TransactionOperation {
     Claim { asset_id: String, amount: u64, deposit_id: DepositId, subaccount_id: String },
     Transfer { asset_id: String, amount: u64, from_subaccount: String, to_subaccount: String },
-    Withdraw { asset_id: String, amount: u64, subaccount_id: String, destination: ExternalDestination },
+    Withdraw { asset_id: String, amount: u64, subaccount_id: String, destination: ExternalDestination, signed_raw_transaction: String, nonce: u64, gas_price: u64, gas_limit: u64 },
 }
 
 /// Provenance history entry
@@ -246,6 +270,10 @@ impl PassWalletState {
                 amount,
                 subaccount_id: subaccount_id.to_string(),
                 destination: external_destination.to_string(),
+                signed_raw_transaction: "pending".to_string(), // Will be updated when transaction is signed
+                nonce: 0, // Will be updated when transaction is signed
+                gas_price: 0, // Will be updated when transaction is signed
+                gas_limit: 0, // Will be updated when transaction is signed
             },
             timestamp: Self::get_timestamp(),
             block_number: None,
@@ -308,10 +336,27 @@ impl PassWalletState {
     }
 }
 
+/// Pending withdrawal transaction with signed data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PendingWithdrawal {
+    pub wallet_address: WalletAddress,
+    pub subaccount_id: String,
+    pub asset_id: String,
+    pub amount: u64,
+    pub destination: String,
+    pub nonce: u64,
+    pub signed_raw_transaction: String,
+    pub created_at: u64,
+}
+
 /// PASS Wallet Manager - manages multiple PASS wallets
 pub struct PassWalletManager {
     kms: Arc<Mutex<EnclaveKMS>>,
     wallets: Arc<Mutex<HashMap<WalletAddress, PassWalletState>>>,
+    /// Global nonce counter for transaction sequencing
+    global_nonce: Arc<Mutex<u64>>,
+    /// Outbox queue for pending withdrawal transactions
+    outbox_queue: Arc<Mutex<VecDeque<PendingWithdrawal>>>,
 }
 
 impl PassWalletManager {
@@ -320,6 +365,8 @@ impl PassWalletManager {
         PassWalletManager {
             kms,
             wallets: Arc::new(Mutex::new(HashMap::new())),
+            global_nonce: Arc::new(Mutex::new(0)),
+            outbox_queue: Arc::new(Mutex::new(VecDeque::new())),
         }
     }
 
@@ -471,6 +518,398 @@ impl PassWalletManager {
         
         Ok(wallet_state.get_state_summary())
     }
+
+    /// Get all assets from a wallet's asset ledger with total balances across all subaccounts
+    pub fn get_wallet_assets(&self, wallet_address: &str) -> Result<serde_json::Value> {
+        let wallet_state = self.get_wallet(wallet_address)
+            .ok_or_else(|| anyhow!("Wallet not found"))?;
+        
+        let mut assets_with_balances = serde_json::Map::new();
+        
+        for (asset_id, asset) in &wallet_state.assets {
+            // Calculate total balance for this asset across all subaccounts
+            let total_balance: u64 = wallet_state.balances
+                .iter()
+                .filter_map(|(balance_key, amount)| {
+                    if let Some((_subaccount_id, balance_asset_id)) = balance_key.split_once(':') {
+                        if balance_asset_id == asset_id {
+                            Some(*amount)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .sum();
+
+            // Get per-subaccount balances for this asset
+            let mut subaccount_balances = serde_json::Map::new();
+            for (balance_key, amount) in &wallet_state.balances {
+                if let Some((subaccount_id, balance_asset_id)) = balance_key.split_once(':') {
+                    if balance_asset_id == asset_id && *amount > 0 {
+                        subaccount_balances.insert(subaccount_id.to_string(), serde_json::Value::Number(serde_json::Number::from(*amount)));
+                    }
+                }
+            }
+
+            assets_with_balances.insert(asset_id.clone(), serde_json::json!({
+                "token_type": asset.token_type,
+                "contract_address": asset.contract_address,
+                "token_id": asset.token_id,
+                "symbol": asset.symbol,
+                "name": asset.name,
+                "decimals": asset.decimals,
+                "total_balance": total_balance,
+                "subaccount_balances": subaccount_balances
+            }));
+        }
+        
+        Ok(serde_json::json!({
+            "wallet_address": wallet_address,
+            "assets": assets_with_balances
+        }))
+    }
+
+    /// Get full provenance log for a wallet
+    pub fn get_provenance_log(&self, wallet_address: &str) -> Result<serde_json::Value> {
+        let wallet_state = self.get_wallet(wallet_address)
+            .ok_or_else(|| anyhow!("Wallet not found"))?;
+        
+        Ok(serde_json::json!({
+            "wallet_address": wallet_address,
+            "provenance_records": wallet_state.history
+        }))
+    }
+
+    /// Get provenance log filtered by asset
+    pub fn get_provenance_by_asset(&self, wallet_address: &str, asset_id: &str) -> Result<serde_json::Value> {
+        let wallet_state = self.get_wallet(wallet_address)
+            .ok_or_else(|| anyhow!("Wallet not found"))?;
+        
+        let filtered_records: Vec<&ProvenanceRecord> = wallet_state.history.iter()
+            .filter(|record| {
+                match &record.operation {
+                    TransactionOperation::Claim { asset_id: a, .. } => a == asset_id,
+                    TransactionOperation::Transfer { asset_id: a, .. } => a == asset_id,
+                    TransactionOperation::Withdraw { asset_id: a, .. } => a == asset_id,
+                }
+            })
+            .collect();
+        
+        Ok(serde_json::json!({
+            "wallet_address": wallet_address,
+            "asset_id": asset_id,
+            "provenance_records": filtered_records
+        }))
+    }
+
+    /// Get provenance log filtered by subaccount
+    pub fn get_provenance_by_subaccount(&self, wallet_address: &str, subaccount_id: &str) -> Result<serde_json::Value> {
+        let wallet_state = self.get_wallet(wallet_address)
+            .ok_or_else(|| anyhow!("Wallet not found"))?;
+        
+        let filtered_records: Vec<&ProvenanceRecord> = wallet_state.history.iter()
+            .filter(|record| {
+                match &record.operation {
+                    TransactionOperation::Claim { subaccount_id: s, .. } => s == subaccount_id,
+                    TransactionOperation::Transfer { from_subaccount, to_subaccount, .. } => {
+                        from_subaccount == subaccount_id || to_subaccount == subaccount_id
+                    },
+                    TransactionOperation::Withdraw { subaccount_id: s, .. } => s == subaccount_id,
+                }
+            })
+            .collect();
+        
+        Ok(serde_json::json!({
+            "wallet_address": wallet_address,
+            "subaccount_id": subaccount_id,
+            "provenance_records": filtered_records
+        }))
+    }
+
+    /// Withdraw assets to external address - builds and signs transaction
+    pub fn withdraw_to_external(&self, 
+        wallet_address: &str, 
+        subaccount_id: &str, 
+        asset_id: &str, 
+        amount: u64, 
+        destination: &str,
+        gas_price: Option<u64>,
+        gas_limit: Option<u64>,
+        chain_id: u64,
+        override_nonce: Option<u64>
+    ) -> Result<(String, u64, u64, u64)> {
+        // Parse destination address first (no locks needed)
+        let to_address = parse_address(destination)?;
+        
+        // CRITICAL: Lock the entire withdrawal process to ensure atomicity and sequencing
+        let mut global_nonce = self.global_nonce.lock().unwrap();
+        
+        // Get and validate wallet state
+        let mut wallet_state = self.get_wallet(wallet_address)
+            .ok_or_else(|| anyhow!("Wallet not found"))?;
+        
+        // Get asset info
+        let asset = wallet_state.assets.get(asset_id)
+            .ok_or_else(|| anyhow!("Asset not found"))?;
+
+        // Check sufficient balance for the asset being withdrawn
+        let current_balance = wallet_state.get_balance(subaccount_id, asset_id);
+        if current_balance < amount {
+            return Err(anyhow!("Insufficient balance: {} available, {} requested", current_balance, amount));
+        }
+
+        // Calculate estimated gas cost first
+        let estimated_gas_price = gas_price.unwrap_or(5_000_000_000); // 5 gwei default for Sepolia
+        let estimated_gas_limit = match asset.token_type {
+            TokenType::ETH => gas_limit.unwrap_or(21_000),
+            TokenType::ERC20 => gas_limit.unwrap_or(60_000),
+            _ => {
+                return Err(anyhow!("Withdrawal not supported for asset type: {:?}", asset.token_type));
+            }
+        };
+        
+        let total_gas_cost = estimated_gas_price * estimated_gas_limit;
+        
+        // Find ETH asset for gas fee calculation
+        let eth_asset_id = wallet_state.assets.iter()
+            .find(|(_, asset)| matches!(asset.token_type, TokenType::ETH))
+            .map(|(id, _)| id.clone())
+            .ok_or_else(|| anyhow!("No ETH asset found in wallet for gas fee calculation"))?;
+        
+        let current_eth_balance = wallet_state.get_balance(subaccount_id, &eth_asset_id);
+        
+        // Check gas fee requirements
+        if asset_id == &eth_asset_id {
+            // Withdrawing ETH: need amount + gas fees
+            let total_eth_needed = amount + total_gas_cost;
+            if current_eth_balance < total_eth_needed {
+                return Err(anyhow!(
+                    "Insufficient ETH for withdrawal + gas fees: {} wei available, {} wei needed ({} withdrawal + {} gas)", 
+                    current_eth_balance, total_eth_needed, amount, total_gas_cost
+                ));
+            }
+        } else {
+            // Withdrawing other asset: need ETH for gas fees only
+            if current_eth_balance < total_gas_cost {
+                return Err(anyhow!(
+                    "Insufficient ETH for gas fees: {} wei available, {} wei needed for gas", 
+                    current_eth_balance, total_gas_cost
+                ));
+            }
+        }
+        
+        // Use provided nonce or fallback to internal counter
+        let wallet_nonce = match override_nonce {
+            Some(nonce) => nonce,
+            None => {
+                // Fallback to internal nonce management (for backward compatibility)
+                wallet_state.nonce += 1;
+                wallet_state.nonce
+            }
+        };
+        
+        // Get global nonce for transaction ordering
+        *global_nonce += 1;
+        let tx_nonce = *global_nonce;
+        drop(global_nonce);
+        
+        // Build transaction based on asset type
+        let (raw_transaction, actual_gas_price, actual_gas_limit) = match asset.token_type {
+            TokenType::ETH => {
+                // Use provided gas price or reasonable default
+                let gas_price_final = gas_price.unwrap_or(5_000_000_000); // 5 gwei default for Sepolia
+                let gas_limit_final = gas_limit.unwrap_or(21_000); // standard ETH transfer
+                let tx = self.build_eth_transaction(
+                    to_address,
+                    amount,
+                    asset.decimals,
+                    wallet_nonce,
+                    gas_price_final,
+                    gas_limit_final,
+                    chain_id,
+                    wallet_address,
+                )?;
+                (tx, gas_price_final, gas_limit_final)
+            },
+            TokenType::ERC20 => {
+                let contract_address = parse_address(
+                    asset.contract_address
+                        .as_ref()
+                        .ok_or_else(|| anyhow!("ERC20 contract address not found"))?
+                )?;
+                
+                // Use provided gas price or reasonable default
+                let gas_price_final = gas_price.unwrap_or(5_000_000_000); // 5 gwei default for Sepolia
+                let gas_limit_final = gas_limit.unwrap_or(60_000); // standard ERC20 transfer
+                let tx = self.build_erc20_transaction(
+                    contract_address,
+                    to_address.clone(),
+                    amount,
+                    wallet_nonce,
+                    gas_price_final,
+                    gas_limit_final,
+                    chain_id,
+                    wallet_address,
+                )?;
+                (tx, gas_price_final, gas_limit_final)
+            },
+            _ => {
+                return Err(anyhow!("Withdrawal not supported for asset type: {:?}", asset.token_type));
+            }
+        };
+        
+        // Update wallet balances
+        wallet_state.set_balance(subaccount_id, asset_id, current_balance - amount);
+        
+        // For ETH withdrawals, also deduct gas fees from ETH balance
+        // For other assets, deduct gas fees from ETH balance
+        if asset_id == &eth_asset_id {
+            // ETH withdrawal: balance already reduced by withdrawal amount above, 
+            // now also deduct gas fees from the same balance
+            let updated_eth_balance = wallet_state.get_balance(subaccount_id, &eth_asset_id);
+            wallet_state.set_balance(subaccount_id, &eth_asset_id, updated_eth_balance - total_gas_cost);
+        } else {
+            // Other asset withdrawal: deduct gas fees from ETH balance
+            let current_eth_balance = wallet_state.get_balance(subaccount_id, &eth_asset_id);
+            wallet_state.set_balance(subaccount_id, &eth_asset_id, current_eth_balance - total_gas_cost);
+        }
+        
+        // Add to provenance history
+        wallet_state.history.push(ProvenanceRecord {
+            operation: TransactionOperation::Withdraw {
+                asset_id: asset_id.to_string(),
+                amount,
+                subaccount_id: subaccount_id.to_string(),
+                destination: destination.to_string(),
+                signed_raw_transaction: raw_transaction.clone(),
+                nonce: tx_nonce,
+                gas_price: actual_gas_price,
+                gas_limit: actual_gas_limit,
+            },
+            timestamp: PassWalletState::get_timestamp(),
+            block_number: None, // Will be filled when transaction is mined
+        });
+        
+        // Save updated wallet state
+        self.update_wallet(wallet_address, wallet_state)?;
+        
+        // Create pending withdrawal record
+        let pending_withdrawal = PendingWithdrawal {
+            wallet_address: wallet_address.to_string(),
+            subaccount_id: subaccount_id.to_string(),
+            asset_id: asset_id.to_string(),
+            amount,
+            destination: destination.to_string(),
+            nonce: tx_nonce,
+            signed_raw_transaction: raw_transaction.clone(),
+            created_at: PassWalletState::get_timestamp(),
+        };
+        
+        // Add to outbox queue (FIFO)
+        {
+            let mut outbox = self.outbox_queue.lock().unwrap();
+            outbox.push_back(pending_withdrawal);
+        }
+        
+        Ok((raw_transaction, tx_nonce, actual_gas_price, actual_gas_limit))
+    }
+    
+    /// Build and sign ETH transaction
+    fn build_eth_transaction(
+        &self,
+        to: Vec<u8>,
+        amount: u64,
+        _decimals: u32,
+        nonce: u64,
+        gas_price: u64,
+        gas_limit: u64,
+        chain_id: u64,
+        wallet_address: &str,
+    ) -> Result<String> {
+        // Build transaction struct
+        let tx = crate::key_manager::LegacyTransaction {
+            nonce,
+            gas_price: u64_to_be_bytes_minimal(gas_price),
+            gas_limit: u64_to_be_bytes_minimal(gas_limit),
+            to: Some(to),
+            value: u64_to_be_bytes_minimal(amount),
+            data: Vec::new(),
+        };
+        
+        // Sign transaction using KMS
+        let signed_tx = {
+            let mut kms = self.kms.lock().unwrap();
+            kms.sign_transaction(wallet_address, &tx, chain_id)?
+        };
+        
+        Ok(signed_tx)
+    }
+    
+    /// Build and sign ERC20 transaction
+    fn build_erc20_transaction(
+        &self,
+        token_contract: Vec<u8>,
+        to: Vec<u8>,
+        amount: u64,
+        nonce: u64,
+        gas_price: u64,
+        gas_limit: u64,
+        chain_id: u64,
+        wallet_address: &str,
+    ) -> Result<String> {
+        // ERC20 transfer function signature: transfer(address,uint256)
+        let transfer_selector = [0xa9, 0x05, 0x9c, 0xbb]; // keccak256("transfer(address,uint256)")[0:4]
+        
+        // Encode function call data
+        let mut call_data = Vec::new();
+        call_data.extend_from_slice(&transfer_selector);
+        
+        // Encode address (32 bytes, left-padded)
+        let mut addr_bytes = [0u8; 32];
+        addr_bytes[12..32].copy_from_slice(&to);
+        call_data.extend_from_slice(&addr_bytes);
+        
+        // Encode amount (32 bytes, big-endian)
+        let mut amount_bytes = [0u8; 32];
+        let amount_be = amount.to_be_bytes();
+        amount_bytes[24..].copy_from_slice(&amount_be);
+        call_data.extend_from_slice(&amount_bytes);
+        
+        // Build transaction struct
+        let tx = crate::key_manager::LegacyTransaction {
+            nonce,
+            gas_price: u64_to_be_bytes_minimal(gas_price),
+            gas_limit: u64_to_be_bytes_minimal(gas_limit),
+            to: Some(token_contract),
+            value: vec![0], // Zero value for ERC20 transfers
+            data: call_data,
+        };
+        
+        // Sign transaction using KMS
+        let signed_tx = {
+            let mut kms = self.kms.lock().unwrap();
+            kms.sign_transaction(wallet_address, &tx, chain_id)?
+        };
+        
+        Ok(signed_tx)
+    }
+    
+    /// Get pending withdrawals from outbox queue
+    pub fn get_outbox_queue(&self) -> Result<Vec<PendingWithdrawal>> {
+        let outbox = self.outbox_queue.lock().unwrap();
+        Ok(outbox.iter().cloned().collect())
+    }
+    
+    /// Remove processed withdrawal from outbox queue
+    pub fn remove_from_outbox(&self, nonce: u64) -> Result<()> {
+        let mut outbox = self.outbox_queue.lock().unwrap();
+        outbox.retain(|w| w.nonce != nonce);
+        Ok(())
+    }
+
+
 }
 
 #[cfg(test)]
