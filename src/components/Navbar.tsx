@@ -7,12 +7,13 @@ const Navbar = () => {
       <div className={styles.leftSection}>
         <div className={styles.logo}>
           <a href="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-            📘 PassWallet
+            📘 PASS
           </a>
         </div>
         <div className={styles.navLinks}>
-          {/* <a href="/" className={styles.navLink}>Send ETH</a>
-          <a href="/mint" className={styles.navLink}>Mint NFT</a> */}
+          <a href="#" className={styles.navLink} target="_blank" rel="noopener noreferrer">Paper</a>
+          <a href="#" className={styles.navLink} target="_blank" rel="noopener noreferrer">App Repo</a>
+          <a href="#" className={styles.navLink} target="_blank" rel="noopener noreferrer">Formal Verification</a>
         </div>
       </div>
       

@@ -93,6 +93,9 @@
   text-align: center;
   margin-bottom: 3rem;
   color: #2d3748;
+  font-family: 'Playfair Display', 'Source Serif Pro', Georgia, 'Times New Roman', serif;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
 .featuresGrid {
@@ -175,6 +178,30 @@
   line-height: 1.6;
 }
 
+/* Abstract Section */
+.abstractSection {
+  width: 100%;
+  padding: 5rem 2rem;
+  background: white;
+}
+
+.abstractContent {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.abstractContent p {
+  font-size: 1.1rem;
+  line-height: 1.7;
+  color: #4a5568;
+  margin-bottom: 1.5rem;
+  text-align: justify;
+}
+
+.abstractContent p:last-child {
+  margin-bottom: 0;
+}
+
 /* Technology Section */
 .techSection {
   width: 100%;
@@ -203,6 +230,26 @@
   color: #a0aec0;
   display: block;
   margin-bottom: 0.5rem;
+}
+
+/* Funding Section */
+.fundingSection {
+  width: 100%;
+  padding: 4rem 2rem;
+  background: #f7fafc;
+}
+
+.fundingContent {
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.fundingText {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  color: #4a5568;
+  margin: 0;
 }
 
 /* Connected State */
@@ -340,6 +387,8 @@
   .featuresSection,
   .securitySection,
   .techSection,
+  .abstractSection,
+  .fundingSection,
   .welcomeContainer {
     padding: 3rem 1rem;
   }

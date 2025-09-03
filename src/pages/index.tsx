@@ -9,44 +9,44 @@ import AccountList from '../components/AccountList';
 const Home: NextPage = () => {
   const { address, isConnected } = useAccount();
 
-  const features = [
+  const contributions = [
     {
-      title: "TEE-Based Security",
-      description: "Keys are managed within AWS Nitro Enclaves, ensuring secure execution isolated from the host system.",
-      icon: "🔐"
-    },
-    {
-      title: "Multi-Account Support",
-      description: "Create and manage multiple Ethereum accounts with sophisticated access controls.",
-      icon: "👥"
-    },
-    {
-      title: "WalletConnect Integration",
-      description: "Seamlessly connect and interact with dApps using WalletConnect v2 protocol.",
+      title: "Provenance-Based Access Control",
+      description: "Novel access control mechanism where authority over assets is determined by their origin and transfer history, rather than traditional role-based approaches.",
       icon: "🔗"
     },
     {
-      title: "Asset Management",
-      description: "View balances, transfer assets, and manage your crypto portfolio across accounts.",
-      icon: "💰"
+      title: "Inbox-Outbox Mechanism",
+      description: "Custodial system that mediates secret key access through a secure channel, enabling multi-entity control without compromising security.",
+      icon: "📥"
     },
     {
-      title: "Message Signing",
-      description: "Sign messages securely through the enclave with cryptographic verification.",
-      icon: "✍️"
+      title: "Privacy-Preserving Transfers",
+      description: "Internal transfers between subaccounts leave no on-chain trace, making multi-user wallets indistinguishable from regular accounts.",
+      icon: "🔒"
     },
     {
-      title: "Transaction History",
-      description: "Track all your transactions and signed messages with detailed audit logs.",
-      icon: "📊"
+      title: "Formal Verification",
+      description: "Key security properties including privacy and policy integrity are formally verified using Lean 4 theorem prover.",
+      icon: "✅"
+    },
+    {
+      title: "TEE-Encumbered Keys",
+      description: "Private keys are managed within Trusted Execution Environments, ensuring secure execution isolated from the host system.",
+      icon: "🛡️"
+    },
+    {
+      title: "No Smart Contract Dependency",
+      description: "Demonstrates feasibility without requiring smart contract deployments, working directly with EOA addresses.",
+      icon: "⚡"
     }
   ];
 
   return (
     <div className={styles.container}>
       <Head>
-        <title>PassWallet - Secure Decentralized Wallet with TEE</title>
-        <meta name="description" content="PassWallet is a decentralized wallet application that enables secure key management through Trusted Execution Environments (TEE)" />
+        <title>PASS - Provenanced Access Subaccount System | Academic Prototype</title>
+        <meta name="description" content="Academic prototype of the Provenanced Access Subaccount System (PASS), a novel wallet architecture enabling multiple entities to securely share control of a single blockchain address with formal verification." />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
@@ -59,72 +59,96 @@ const Home: NextPage = () => {
             <div className={styles.hero}>
               <div className={styles.heroContent}>
                 <h1 className={styles.heroTitle}>
-                  PassWallet
-                  <span className={styles.subtitle}>Secure Crypto Wallet with TEE Protection</span>
+                  Provenanced Access Subaccount System (PASS)
+                  <span className={styles.subtitle}>Academic Research Prototype</span>
                 </h1>
                 <p className={styles.heroDescription}>
-                  Experience next-generation wallet security with PassWallet. Built on AWS Nitro Enclaves, 
-                  our decentralized wallet application provides uncompromising key management through 
-                  Trusted Execution Environments (TEE).
+                  A novel wallet architecture enabling multiple entities to securely share control of a single blockchain address through provenance-based access control and TEE-encumbered secret key management.
                 </p>
                 <div className={styles.connectContainer}>
                   <ConnectButton />
-                  <p className={styles.connectHint}>Connect your wallet to start exploring secure crypto management</p>
+                  <p className={styles.connectHint}>Connect your wallet to explore the PASS prototype</p>
                 </div>
               </div>
             </div>
 
-            {/* Features Section */}
+            {/* Research Abstract Section */}
+            <section className={styles.abstractSection}>
+              <h2 className={styles.sectionTitle}>Research Abstract</h2>
+              <div className={styles.abstractContent}>
+                <p>
+                  Blockchain wallets traditionally operate under a single-entity ownership model where possession of a private key grants complete control over all assets. This paradigm becomes limiting as blockchain applications evolve toward more complex access patterns, such as with Trusted Execution Environment (TEE) based private key encumbrance.
+                </p>
+                <p>
+                  We present the Provenanced Access Subaccount System (PASS), a novel wallet architecture that enables multiple entities to securely share control of a single blockchain address. Unlike existing approaches that rely on role-based or attribute-based access control, PASS introduces provenance-based access control, where authority over assets is determined by their origin and transfer history, and secret key access is mediated by a custodial Inbox-Outbox mechanism.
+                </p>
+                <p>
+                  Our design allows multi-entity control of a single wallet address with a strong notion of privacy, where internal transfers between subaccounts leave no on-chain trace, and a multi-user PASS wallet is indistinguishable from a regular user account. We outline the core design of PASS and formally verify key security properties, such as privacy and policy integrity, with Lean 4. We also implement a prototype in TypeScript with WalletConnect integration for Ethereum Virtual Machine (EVM) blockchains and with a TEE-encumbered secret key, demonstrating PASS's feasibility without any smart contract deployments.
+                </p>
+                <p>
+                  This work advances wallet security by combining the flexibility of multi-user access models with strong privacy guarantees and a formal verification approach.
+                </p>
+              </div>
+            </section>
+
+            {/* Research Contributions Section */}
             <section className={styles.featuresSection}>
-              <h2 className={styles.sectionTitle}>Why Choose PassWallet?</h2>
+              <h2 className={styles.sectionTitle}>Research Contributions</h2>
               <div className={styles.featuresGrid}>
-                {features.map((feature, index) => (
+                {contributions.map((contribution, index) => (
                   <div key={index} className={styles.featureCard}>
-                    <div className={styles.featureIcon}>{feature.icon}</div>
-                    <h3 className={styles.featureTitle}>{feature.title}</h3>
-                    <p className={styles.featureDescription}>{feature.description}</p>
+                    <div className={styles.featureIcon}>{contribution.icon}</div>
+                    <h3 className={styles.featureTitle}>{contribution.title}</h3>
+                    <p className={styles.featureDescription}>{contribution.description}</p>
                   </div>
                 ))}
               </div>
             </section>
 
-            {/* Security Section */}
+            {/* Formal Verification Section */}
             <section className={styles.securitySection}>
               <div className={styles.securityContent}>
-                <h2 className={styles.sectionTitle}>Enterprise-Grade Security</h2>
+                <h2 className={styles.sectionTitle}>Formal Verification & Privacy Guarantees</h2>
                 <div className={styles.securityGrid}>
                   <div className={styles.securityItem}>
-                    <h3>🛡️ Key Encumbrance</h3>
-                    <p>Advanced key management with predefined rules that cannot be arbitrarily overwritten</p>
+                    <h3>🔍 Privacy Property Verification</h3>
+                    <p>Formally verified that multi-user PASS wallets are indistinguishable from regular user accounts on-chain</p>
                   </div>
                   <div className={styles.securityItem}>
-                    <h3>🔒 TEE Isolation</h3>
-                    <p>Critical operations execute in isolated environments, protected from host system access</p>
+                    <h3>✅ Policy Integrity Verification</h3>
+                    <p>Proven that access control policies cannot be violated through formal verification with Lean 4</p>
                   </div>
                   <div className={styles.securityItem}>
-                    <h3>⚡ Zero Trust Architecture</h3>
-                    <p>Built on principles of never trusting, always verifying every transaction and operation</p>
+                    <h3>🔒 TEE Security Guarantees</h3>
+                    <p>Critical operations execute in isolated TEE environments with formally verified isolation properties</p>
                   </div>
                 </div>
               </div>
             </section>
 
-            {/* Technology Stack */}
+            {/* Implementation & Methodology */}
             <section className={styles.techSection}>
-              <h2 className={styles.sectionTitle}>Built with Modern Technology</h2>
+              <h2 className={styles.sectionTitle} style={{ color: 'white' }}>Research Methodology</h2>
               <div className={styles.techGrid}>
                 <div className={styles.techItem}>
-                  <strong>Frontend:</strong> Next.js, RainbowKit, WalletConnect v2
+                  <strong>Formal Verification:</strong> Lean 4 theorem prover for key security lemmas and privacy properties on PASS formal model.
                 </div>
                 <div className={styles.techItem}>
-                  <strong>Security:</strong> AWS Nitro Enclaves, TEE Architecture
+                  <strong>Prototype Implementation:</strong> Rust enclave logic, TypeScript frontend, and WalletConnect v2 integration for EVM blockchains.
                 </div>
                 <div className={styles.techItem}>
-                  <strong>Blockchain:</strong> Ethereum, Multi-chain Support
+                  <strong>TEE Infrastructure:</strong> AWS Nitro Enclaves and Phala dStackfor secure key management and execution.
                 </div>
-                <div className={styles.techItem}>
-                  <strong>Database:</strong> Prisma ORM, SQLite
-                </div>
+              </div>
+            </section>
+
+            {/* Funding Acknowledgment */}
+            <section className={styles.fundingSection}>
+              <div className={styles.fundingContent}>
+                <h2 className={styles.sectionTitle}>Funding Acknowledgment</h2>
+                <p className={styles.fundingText}>
+                  This work was funded in part by the <strong>Ethereum Foundation Academic Grants Round 2025</strong>.
+                </p>
               </div>
             </section>
           </>
@@ -139,9 +163,9 @@ const Home: NextPage = () => {
         )}
       </main>
 
-      <footer className={styles.footer}>
+      {/* <footer className={styles.footer}>
         <p>Built with ❤️ for secure decentralized finance • Powered by AWS Nitro Enclaves</p>
-      </footer>
+      </footer> */}
     </div>
   );
 };
