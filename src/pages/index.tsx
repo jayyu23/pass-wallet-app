@@ -59,7 +59,7 @@ const Home: NextPage = () => {
             <div className={styles.hero}>
               <div className={styles.heroContent}>
                 <h1 className={styles.heroTitle}>
-                  Provenanced Access Subaccount System (PASS)
+                  PASS - Provenanced Access Subaccount System
                   <span className={styles.subtitle}>Academic Research Prototype</span>
                 </h1>
                 <p className={styles.heroDescription}>
@@ -155,8 +155,8 @@ const Home: NextPage = () => {
         ) : (
           <div className={styles.welcomeContainer}>
             <div className={styles.connectedHeader}>
-              <h1>Welcome back to PassWallet</h1>
-              <p className={styles.connectedAccount}>Connected: <span>{address}</span></p>
+              <h1>Welcome to PassWallet</h1>
+              <p className={styles.connectedAccount}>Connected Wallet: <span>{address}</span></p>
             </div>
             <AccountList />
           </div>

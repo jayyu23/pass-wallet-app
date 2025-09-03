@@ -89,11 +89,11 @@
 
 .sectionTitle {
   font-size: 2.5rem;
-  font-weight: 600;
+  font-weight: 700;
   text-align: center;
   margin-bottom: 3rem;
   color: #2d3748;
-  font-family: 'Playfair Display', 'Source Serif Pro', Georgia, 'Times New Roman', serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   letter-spacing: -0.02em;
   line-height: 1.1;
 }
@@ -256,9 +256,13 @@
 .welcomeContainer {
   width: 100%;
   padding: 6rem 2rem 4rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: white;
+  color: #2d3748;
   text-align: center;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .connectedHeader {
@@ -268,21 +272,25 @@
 .connectedHeader h1 {
   font-size: 2.5rem;
   margin-bottom: 1rem;
-  font-weight: 600;
+  font-weight: 700;
+  color: #2d3748;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 .connectedAccount {
   font-size: 1.1rem;
-  opacity: 0.9;
+  color: #4a5568;
   margin: 0;
 }
 
 .connectedAccount span {
   font-family: 'Monaco', 'Courier New', monospace;
-  background: rgba(255, 255, 255, 0.2);
+  background: #f7fafc;
+  color: #2d3748;
   padding: 0.5rem 1rem;
   border-radius: 6px;
   font-size: 0.9rem;
+  border: 1px solid #e2e8f0;
 }
 
 /* Legacy styles for compatibility */

@@ -20,30 +20,27 @@ const AccountsList = () => {
 
   const accountCardStyle = {
     padding: '20px',
-    border: '1px solid #eaeaea',
+    border: '1px solid #e2e8f0',
     borderRadius: '12px',
     marginBottom: '16px',
     width: '100%',
-    maxWidth: '600px',
     backgroundColor: 'white',
     transition: 'all 0.2s ease',
     cursor: 'pointer',
-    '&:hover': {
-      transform: 'translateY(-2px)',
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-    }
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
   };
 
   const buttonStyle = {
     padding: '12px 24px',
-    backgroundColor: '#0d76fc',
+    backgroundColor: '#667eea',
     color: 'white',
     border: 'none',
     borderRadius: '8px',
     cursor: 'pointer',
     fontSize: '16px',
     fontWeight: '600',
-    marginTop: '20px',
+    transition: 'all 0.2s ease',
+    boxShadow: '0 2px 4px rgba(102, 126, 234, 0.2)',
   };
 
   useEffect(() => {
@@ -105,11 +102,21 @@ const AccountsList = () => {
   };
 
   return (
-    <div style={{ width: '100%', maxWidth: '600px', marginTop: '2rem' }}>
-      <div style={{ marginBottom: '2rem' }}>
+    <div style={{ width: '100%', maxWidth: '600px' }}>
+      <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
         <button
           onClick={handleCreateNewAccount}
           style={buttonStyle}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#5a67d8';
+            e.currentTarget.style.transform = 'translateY(-1px)';
+            e.currentTarget.style.boxShadow = '0 4px 8px rgba(102, 126, 234, 0.3)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#667eea';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 2px 4px rgba(102, 126, 234, 0.2)';
+          }}
         >
           + Create New Account
         </button>
@@ -120,6 +127,14 @@ const AccountsList = () => {
           key={index} 
           style={accountCardStyle}
           onClick={() => handleAccountClick(account.address)}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.05)';
+          }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 style={{ margin: '0' }}>{account.name}</h3>
@@ -152,37 +167,85 @@ const AccountsList = () => {
           justifyContent: 'center',
           alignItems: 'center',
           zIndex: 1000,
+          padding: '20px',
         }}>
           <div style={{
             backgroundColor: 'white',
-            padding: '24px',
+            padding: '32px',
             borderRadius: '12px',
-            width: '90%',
+            width: '100%',
             maxWidth: '400px',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
           }}>
-            <h3>Create New Account</h3>
-            <input
-              type="text"
-              value={newWalletName}
-              onChange={(e) => setNewWalletName(e.target.value)}
-              placeholder="Enter wallet name"
-              style={{
-                width: '100%',
-                padding: '8px',
-                marginBottom: '16px',
-                borderRadius: '4px',
-                border: '1px solid #eaeaea',
-              }}
-            />
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+            <h3 style={{ 
+              margin: '0 0 24px 0', 
+              fontSize: '1.5rem', 
+              fontWeight: '600',
+              color: '#2d3748',
+              fontFamily: 'Inter, sans-serif'
+            }}>
+              Create New Account
+            </h3>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ 
+                display: 'block', 
+                marginBottom: '8px', 
+                fontSize: '14px', 
+                fontWeight: '500',
+                color: '#4a5568'
+              }}>
+                Account Name
+              </label>
+              <input
+                type="text"
+                value={newWalletName}
+                onChange={(e) => setNewWalletName(e.target.value)}
+                placeholder="Enter account name"
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  border: '1px solid #e2e8f0',
+                  fontSize: '16px',
+                  fontFamily: 'Inter, sans-serif',
+                  outline: 'none',
+                  transition: 'border-color 0.2s ease',
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#667eea';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#e2e8f0';
+                }}
+              />
+            </div>
+            <div style={{ 
+              display: 'flex', 
+              gap: '12px', 
+              justifyContent: 'flex-end',
+              marginTop: '32px'
+            }}>
               <button
                 onClick={() => {
                   setIsModalOpen(false);
                   setNewWalletName('');
                 }}
                 style={{
-                  ...buttonStyle,
-                  backgroundColor: '#dc3545',
+                  padding: '12px 24px',
+                  backgroundColor: '#e2e8f0',
+                  color: '#4a5568',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#cbd5e0';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#e2e8f0';
                 }}
               >
                 Cancel
@@ -190,8 +253,18 @@ const AccountsList = () => {
               <button
                 onClick={handleSubmitNewAccount}
                 style={buttonStyle}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#5a67d8';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 4px 8px rgba(102, 126, 234, 0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#667eea';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(102, 126, 234, 0.2)';
+                }}
               >
-                Create
+                Create Account
               </button>
             </div>
           </div>
