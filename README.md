@@ -21,35 +21,14 @@ git clone https://github.com/jayyu23/pass-wallet-app
 
 2. **Install dependencies**
 ```bash
-# Install frontend dependencies
 npm install
 ```
 
-3. **Set up environment variables**
-
-Create `.env`:
-```
-NEXT_PUBLIC_PROJECT_ID=your_walletconnect_project_id
-DATABASE_URL="file:./dev.db"
-```
-
-4. **Initialize the database**
-```bash
-npx prisma db push
-```
-
-5. **Start the services**
-
-Run backend:
+3. Run backend:
 
 See `nitro-enclave` folder for instructions to setup AWS Nitro server
 
-For Flask simulation of enclave, run:
-```bash
-npm run enclave-py
-```
-
-Run frontend:
+4. Run frontend:
 ```bash
 npm run dev
 ```
@@ -83,7 +62,6 @@ The HTTP server runs on port 5000 by default and communicates with the Nitro Enc
 │   ├── styles/          # CSS modules
 │   └── types/           # TypeScript definitions
 ├── nitro-enclave/       # AWS Nitro Enclave implementation - see `nitro-enclave/README.md` for more details
-└── prisma/              # Database schema
 ```
 
 ### Key Components
