@@ -11,9 +11,9 @@ const Navbar = () => {
           </a>
         </div>
         <div className={styles.navLinks}>
-          <a href="https://cs191w.stanford.edu/projects/Yu,%20Jay_Systems%20191W.pdf" className={styles.navLink} target="_blank" rel="noopener noreferrer">Paper</a>
-          <a href="https://github.com/jayyu23/pass-wallet-app" className={styles.navLink} target="_blank" rel="noopener noreferrer">App Repo</a>
-          <a href="https://github.com/jayyu23/pass-lean4-proofs" className={styles.navLink} target="_blank" rel="noopener noreferrer">Formal Verification</a>
+          <a href="#" className={styles.navLink} target="_blank" rel="noopener noreferrer">Paper</a>
+          <a href="#" className={styles.navLink} target="_blank" rel="noopener noreferrer">App Repo</a>
+          <a href="#" className={styles.navLink} target="_blank" rel="noopener noreferrer">Formal Verification</a>
         </div>
       </div>
       

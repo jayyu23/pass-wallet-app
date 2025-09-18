@@ -1,9 +1,5 @@
 # PassWallet App Prototype
 
-By Jay Yu
-
-[Paper Draft](https://cs191w.stanford.edu/projects/Yu,%20Jay_Systems%20191W.pdf)
-
 ## Overview
 PassWallet is a decentralized wallet application that enables secure key management through a simulated Trusted Execution Environment (TEE). It combines Next.js, RainbowKit, and WalletConnect for the frontend with a AWS Nitro Enclave TEE for key management and signing. This is a demo application based on recent work on key encumbrance techniques and TEE-based wallet platforms such as [Liquefaction](https://github.com/key-encumbrance/liquefaction).
 
@@ -27,13 +23,6 @@ git clone https://github.com/jayyu23/pass-wallet-app
 ```bash
 # Install frontend dependencies
 npm install
-
-# Install Python enclave dependencies
-cd py-kms-sim
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-cd ..
 ```
 
 3. **Set up environment variables**
@@ -42,11 +31,6 @@ Create `.env`:
 ```
 NEXT_PUBLIC_PROJECT_ID=your_walletconnect_project_id
 DATABASE_URL="file:./dev.db"
-```
-
-(Optional) Create `py-kms-sim/.env`:
-```
-ENCLAVE_SECRET=your_secure_enclave_secret
 ```
 
 4. **Initialize the database**
@@ -98,10 +82,6 @@ The HTTP server runs on port 5000 by default and communicates with the Nitro Enc
 │   ├── pages/           # Next.js pages & API routes
 │   ├── styles/          # CSS modules
 │   └── types/           # TypeScript definitions
-├── py-kms-sim/          # Python Key Management System Simulation
-│   ├── enclave_api.py   # REST API endpoints
-│   ├── enclave_kms.py   # Core KMS logic
-│   └── venv/            # Python virtual environment
 ├── nitro-enclave/       # AWS Nitro Enclave implementation - see `nitro-enclave/README.md` for more details
 └── prisma/              # Database schema
 ```
@@ -112,31 +92,3 @@ The HTTP server runs on port 5000 by default and communicates with the Nitro Enc
 - **Backend**: Next.js API routes for business logic
 - **Enclave**: AWS Nitro Enclave (nitro-enclave) or Python service simulating a TEE for key operations (py-kms-sim)
 - **Database**: SQLite via Prisma for wallet metadata
-
-
-## Security Considerations
-
-> ⚠️ **Warning**: This implementation is for demonstration purposes only.
-
-For production use:
-
-- Use a TEE with strong hardware security (AWS Nitro Enclaves, Intel SGX) rather than a simulated TEE.
-- Implement key rotation and secure backup procedures
-- Add comprehensive access controls and audit logging
-- Use secure channels between components
-- Regular security audits
-
-## License
-
-This project is licensed under the MIT License.
-
-## Acknowledgments
-
-This project is inspired by the [Liquefaction](https://github.com/key-encumbrance/liquefaction) paper by IC3 researchers James Austgen, Andrés Fábrega, Mahimna Kelkar, Dani Vilardell, Sarah Allen, Kushal Babel, Jay Yu, and Ari Juels.
-
-Built with:
-- [RainbowKit](https://rainbowkit.com) - Wallet connection UI
-- [wagmi](https://wagmi.sh) - React Hooks for Ethereum
-- [Next.js](https://nextjs.org) - React Framework
-- [WalletConnect v2](https://walletconnect.com) - Web3 Messaging Protocol
-- [eth-account](https://github.com/ethereum/eth-account) - Ethereum Key Management

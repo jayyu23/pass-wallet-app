@@ -141,16 +141,6 @@ const Home: NextPage = () => {
                 </div>
               </div>
             </section>
-
-            {/* Funding Acknowledgment */}
-            <section className={styles.fundingSection}>
-              <div className={styles.fundingContent}>
-                <h2 className={styles.sectionTitle}>Funding Acknowledgment</h2>
-                <p className={styles.fundingText}>
-                  This work was funded in part by the <strong>Ethereum Foundation Academic Grants Round 2025</strong>.
-                </p>
-              </div>
-            </section>
           </>
         ) : (
           <div className={styles.welcomeContainer}>
