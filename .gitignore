@@ -65,3 +65,5 @@ nitro-enclave/nitro-enclave
 http-server.log
 
 */target/
+nitro-enclave/tests/benchmark_results.txt
+nitro-enclave/tests/benchmark.txt
