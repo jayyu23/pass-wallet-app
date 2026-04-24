@@ -1,7 +1,13 @@
 # PassWallet App Prototype
 
+By Jay Yu
+
+[Paper Draft](https://www.jayyu.xyz/files/PASS_0917_preview_pub.pdf)
+
 ## Overview
 PassWallet is a decentralized wallet application that enables secure key management through a simulated Trusted Execution Environment (TEE). It combines Next.js, RainbowKit, and WalletConnect for the frontend with a AWS Nitro Enclave TEE for key management and signing. This is a demo application based on recent work on key encumbrance techniques and TEE-based wallet platforms such as [Liquefaction](https://github.com/key-encumbrance/liquefaction).
+
+This project is part of "PASS: Provenanced Access Subaccount System" paper accepted and presented at the [CoDecFin Workshop @ Financial Cryptography and Data Security 2026](https://www.ic3conference.org/program/accepted-papers).
 
 ## Features
 
@@ -70,3 +76,24 @@ The HTTP server runs on port 5000 by default and communicates with the Nitro Enc
 - **Backend**: Next.js API routes for business logic
 - **Enclave**: AWS Nitro Enclave (nitro-enclave) or Python service simulating a TEE for key operations (py-kms-sim)
 - **Database**: SQLite via Prisma for wallet metadata
+
+
+## Security Considerations
+
+> ⚠️ **Warning**: This implementation is for demonstration purposes only.
+
+For production use:
+
+- Use a TEE with strong hardware security (AWS Nitro Enclaves, Intel SGX) rather than a simulated TEE.
+- Implement key rotation and secure backup procedures
+- Add comprehensive access controls and audit logging
+- Use secure channels between components
+- Regular security audits
+
+## License
+
+This project is licensed under the MIT License.
+
+## Acknowledgments
+
+This work was supported in part by a grant from the Ethereum Foundation's 2025 Academic Grants Round. We thank Prof. Dan Boneh, Prof. Ari Juels, and the IC3 team for their guidance, feedback, and insightful discussions throughout this project. Their support significantly strengthened both the technical development and presentation of this work.
